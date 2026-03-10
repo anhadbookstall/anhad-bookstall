@@ -1,0 +1,53 @@
+# render.yaml - Render deployment configuration
+# Place this file in the ROOT of your GitHub repository
+# Render will auto-detect it and configure your services
+
+services:
+  # ---- Backend (Node.js API) ----
+  - type: web
+    name: bookstall-backend
+    env: node
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGO_URI
+        sync: false  # You'll set this in Render dashboard
+      - key: JWT_SECRET
+        sync: false
+      - key: ADMIN_USERNAME
+        value: Admin
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: FRONTEND_URL
+        sync: false  # Set to your frontend URL after deploying frontend
+
+  # ---- Frontend (React) ----
+  - type: web
+    name: bookstall-frontend
+    env: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: build
+    envVars:
+      - key: REACT_APP_GOOGLE_CLIENT_ID
+        sync: false
+      - key: REACT_APP_API_URL
+        sync: false  # Set to your backend URL: https://bookstall-backend.onrender.com/api
+    routes:
+      # React Router - serve index.html for all routes
+      - type: rewrite
+        source: /*
+        destination: /index.html
