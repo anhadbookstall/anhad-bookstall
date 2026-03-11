@@ -39,11 +39,18 @@ const volunteerOnly = async (req, res, next) => {
   if (!req.user || req.user.role !== 'volunteer') {
     return res.status(403).json({ message: 'Access denied. Volunteer only.' });
   }
-  const vol = await Volunteer.findById(req.user.id).select('status');
-  if (!vol || vol.status !== 'active') {
-    return res.status(403).json({ message: 'Your account is suspended or inactive.' });
+  try {
+    const vol = await Volunteer.findById(req.user.id).select('status');
+    if (!vol) {
+      return res.status(403).json({ message: 'Volunteer account not found.' });
+    }
+    if (vol.status !== 'active') {
+      return res.status(403).json({ message: 'Your account is suspended or inactive.' });
+    }
+    next();
+  } catch (err) {
+    return res.status(403).json({ message: 'Auth check failed: ' + err.message });
   }
-  next();
 };
 
 // Middleware: Admin or Volunteer

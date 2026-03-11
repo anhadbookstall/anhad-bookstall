@@ -6,7 +6,7 @@ import {
   MenuItem, Select, FormControl, InputLabel, Button,
 } from '@mui/material';
 import {
-  MenuBook, People, Store, TrendingUp, Warning, AccountBalance,
+  MenuBook, People, Store, TrendingUp, Warning, AccountBalance, Inventory,
 } from '@mui/icons-material';
 import {
   Chart as ChartJS, CategoryScale, LinearScale, BarElement, LineElement,
