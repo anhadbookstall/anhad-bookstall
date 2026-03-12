@@ -9,7 +9,7 @@ const getVolunteers = async (req, res) => {
   if (status) filter.status = status;
 
   const volunteers = await Volunteer.find(filter)
-    .populate('willingCities', 'name')
+    .populate('willingCities', '_id name')
     .populate('booksReadByAP', 'title language')
     .sort('name');
   res.json(volunteers);

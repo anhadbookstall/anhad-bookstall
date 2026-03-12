@@ -82,7 +82,7 @@ const startBookstall = async (req, res) => {
   }
 
   const bookstall = await Bookstall.create({
-    schedule: scheduleId,
+    schedule: scheduleId || undefined,
     city: cityId,
     location,
     lead: volunteerId,

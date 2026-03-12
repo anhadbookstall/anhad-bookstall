@@ -8,7 +8,7 @@ const {
 const { protect, adminOnly, authenticated } = require('../middleware/auth');
 const { uploadVolunteerPhoto } = require('../config/cloudinary');
 
-router.get('/', protect, adminOnly, getVolunteers);
+router.get('/', protect, authenticated, getVolunteers);
 router.get('/:id', protect, authenticated, getVolunteer);
 router.post('/', protect, adminOnly, addVolunteer);
 router.put('/:id', protect, authenticated, updateVolunteer);
