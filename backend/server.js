@@ -10,7 +10,6 @@ const express = require('express');
 const cors = require('cors');
 const connectDB = require('./config/db');
 const errorHandler = require('./middleware/errorHandler');
-const scheduleJobs = require('./utils/scheduler');
 
 // Import all route files
 const authRoutes = require('./routes/auth');
@@ -21,7 +20,6 @@ const inventoryRoutes = require('./routes/inventory');
 const bookstallRoutes = require('./routes/bookstalls');
 const saleRoutes = require('./routes/sales');
 const expenditureRoutes = require('./routes/expenditures');
-const scheduleRoutes = require('./routes/schedules');
 const dashboardRoutes = require('./routes/dashboard');
 const notificationRoutes = require('./routes/notifications');
 
@@ -44,7 +42,6 @@ app.use('/api/inventory', inventoryRoutes);
 app.use('/api/bookstalls', bookstallRoutes);
 app.use('/api/sales', saleRoutes);
 app.use('/api/expenditures', expenditureRoutes);
-app.use('/api/schedules', scheduleRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/notifications', notificationRoutes);
 
@@ -61,7 +58,6 @@ const startServer = async () => {
   await connectDB(); // Connect to MongoDB first
   app.listen(PORT, () => {
     console.log(`✅ Server running on port ${PORT}`);
-    scheduleJobs(); // Start cron jobs (e.g., notifications before bookstall)
   });
 };
 

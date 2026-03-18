@@ -3,7 +3,7 @@ const express = require('express');
 const router = express.Router();
 const {
   getVolunteers, getVolunteer, addVolunteer, updateVolunteer,
-  updateVolunteerPhoto, suspendVolunteer, revokeSupension, removeVolunteer,
+  updateVolunteerPhoto, suspendVolunteer, revokeSupension, removeVolunteer, toggleBookstallLead,
 } = require('../controllers/volunteerController');
 const { protect, adminOnly, authenticated } = require('../middleware/auth');
 const { uploadVolunteerPhoto } = require('../config/cloudinary');
@@ -16,5 +16,7 @@ router.put('/:id/photo', protect, authenticated, uploadVolunteerPhoto.single('ph
 router.put('/:id/suspend', protect, adminOnly, suspendVolunteer);
 router.put('/:id/revoke', protect, adminOnly, revokeSupension);
 router.delete('/:id', protect, adminOnly, removeVolunteer);
+
+router.put('/:id/toggle-lead', protect, adminOnly, toggleBookstallLead);
 
 module.exports = router;

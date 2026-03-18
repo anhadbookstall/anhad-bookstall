@@ -91,10 +91,11 @@ const volunteerGoogleLogin = async (req, res) => {
     token,
     user: {
       role: 'volunteer',
-      id: volunteer._id,
+      id: volunteer._id.toString(),
       name: volunteer.name,
       email: volunteer.gmailId,
       profilePhoto: volunteer.profilePhoto,
+      isBookstallLead: volunteer.isBookstallLead,
     },
   });
 };

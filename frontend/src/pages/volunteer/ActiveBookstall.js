@@ -6,16 +6,13 @@ import {
   AccordionDetails, CircularProgress, Alert, Autocomplete, Chip, Avatar,
 } from '@mui/material';
 import {
-  ExpandMore, PlayArrow, Stop, ExitToApp, ReplayCircleFilled,
-  CameraAlt, CalendarMonth, Store,
+  ExpandMore, PlayArrow, Stop, ExitToApp, ReplayCircleFilled, CameraAlt, Store,
 } from '@mui/icons-material';
 import {
   getActiveBookstall, startBookstall, closeBookstall, exitBookstall,
-  rejoinBookstall, addSale, addReflection, getBooks, getCities,
-  getVolunteers, getSchedules,
+  rejoinBookstall, addSale, addReflection, getBooks, getCities, getVolunteers,
 } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
-import { useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
 
 const AGE_CATEGORIES = [
@@ -30,7 +27,6 @@ const emptySaleForm = {
   joinedGitaCommunity: false, photoConsent: false,
 };
 
-// Helper: safely compare two MongoDB IDs regardless of type
 const isSameId = (id1, id2) => {
   if (!id1 || !id2) return false;
   return id1.toString() === id2.toString();
@@ -38,19 +34,16 @@ const isSameId = (id1, id2) => {
 
 const ActiveBookstall = () => {
   const { user } = useAuth();
-  const routeState = useLocation().state || {};
 
   const [bookstall, setBookstall] = useState(null);
   const [loading, setLoading] = useState(true);
   const [books, setBooks] = useState([]);
   const [cities, setCities] = useState([]);
   const [volunteers, setVolunteers] = useState([]);
-  const [schedules, setSchedules] = useState([]);
   const [showStartForm, setShowStartForm] = useState(false);
   const [reflection, setReflection] = useState('');
 
   const [startForm, setStartForm] = useState({
-    scheduleId: routeState.scheduleId || '',
     cityId: '',
     location: '',
     presentVolunteerIds: [],
@@ -71,30 +64,20 @@ const ActiveBookstall = () => {
     fetchBookstall();
     getBooks().then((r) => setBooks(r.data)).catch(() => {});
     getCities().then((r) => setCities(r.data)).catch(() => {});
-    getVolunteers({ status: 'active' }).then((r) => setVolunteers(r.data)).catch(() => {});
-    getSchedules().then((r) => setSchedules(r.data)).catch(() => {});
+    getVolunteers({ status: 'active' }).then((r) => {
+      setVolunteers(r.data.filter((v) => !isSameId(v._id, user?.id)));
+    }).catch(() => {});
   }, []);
 
   const fetchBookstall = async () => {
     try {
       const res = await getActiveBookstall();
       setBookstall(res.data);
-    } catch (err) {
-      console.log('Bookstall fetch:', err.response?.data?.message);
+    } catch {
       setBookstall(null);
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleScheduleSelect = (scheduleId) => {
-    const selected = schedules.find((s) => s._id === scheduleId);
-    setStartForm((f) => ({
-      ...f,
-      scheduleId,
-      cityId: selected?.city?._id || f.cityId,
-      location: selected?.location || f.location,
-    }));
   };
 
   const handleStart = async () => {
@@ -174,6 +157,13 @@ const ActiveBookstall = () => {
     }
   };
 
+  // Volunteers willing to serve in selected city
+  const cityVolunteers = startForm.cityId
+    ? volunteers.filter((v) =>
+        v.willingCities?.some((c) => isSameId(c._id || c, startForm.cityId))
+      )
+    : [];
+
   // ---- LOADING ----
   if (loading) {
     return (
@@ -185,32 +175,37 @@ const ActiveBookstall = () => {
 
   // ---- NO ACTIVE BOOKSTALL ----
   if (!bookstall) {
-    const myLeadSchedules = schedules.filter((s) =>
-      isSameId(s.assignedLead?._id || s.assignedLead, user?.id)
-    );
+    // Non-leads see a simple message
+    if (!user?.isBookstallLead) {
+      return (
+        <Box>
+          <Alert severity="info" icon={<Store />} sx={{ mb: 2, fontSize: '1rem' }}>
+            There is no active bookstall at present.
+          </Alert>
+          <Typography variant="body2" color="text.secondary">
+            You will be notified when a bookstall is started by a Bookstall Lead.
+          </Typography>
+        </Box>
+      );
+    }
 
+    // Lead sees start option
     return (
       <Box>
         <Alert severity="info" icon={<Store />} sx={{ mb: 4, fontSize: '1rem' }}>
           There is no active bookstall at present.
         </Alert>
 
-        {/* Start Bookstall Button */}
+        {/* Start Button */}
         {!showStartForm && (
-          <Box sx={{ mb: 4 }}>
-            <Button
-              variant="contained" color="success" size="large"
-              startIcon={<PlayArrow />}
-              onClick={() => setShowStartForm(true)}
-            >
-              Start a Bookstall
-            </Button>
-            {myLeadSchedules.length === 0 && (
-              <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
-                Note: Only the assigned lead should start the bookstall
-              </Typography>
-            )}
-          </Box>
+          <Button
+            variant="contained" color="success" size="large"
+            startIcon={<PlayArrow />}
+            onClick={() => setShowStartForm(true)}
+            sx={{ mb: 4 }}
+          >
+            Start a Bookstall
+          </Button>
         )}
 
         {/* Start Form */}
@@ -221,26 +216,9 @@ const ActiveBookstall = () => {
                 Start Bookstall
               </Typography>
 
-              {myLeadSchedules.length > 0 && (
-                <TextField
-                  select fullWidth label="Select Scheduled Bookstall (optional)"
-                  value={startForm.scheduleId}
-                  onChange={(e) => handleScheduleSelect(e.target.value)}
-                  margin="normal"
-                  helperText="Selecting a schedule will auto-fill city and location"
-                >
-                  <MenuItem value="">-- Start without schedule --</MenuItem>
-                  {myLeadSchedules.map((s) => (
-                    <MenuItem key={s._id} value={s._id}>
-                      {s.city?.name} — {s.location} ({new Date(s.scheduledDate).toLocaleDateString('en-IN')})
-                    </MenuItem>
-                  ))}
-                </TextField>
-              )}
-
               <TextField
                 select fullWidth label="City *" value={startForm.cityId}
-                onChange={(e) => setStartForm({ ...startForm, cityId: e.target.value })}
+                onChange={(e) => setStartForm({ ...startForm, cityId: e.target.value, presentVolunteerIds: [] })}
                 margin="normal"
               >
                 {cities.map((c) => <MenuItem key={c._id} value={c._id}>{c.name}</MenuItem>)}
@@ -261,12 +239,20 @@ const ActiveBookstall = () => {
 
               <Autocomplete
                 multiple
-                options={volunteers.filter((v) => !isSameId(v._id, user?.id))}
+                options={cityVolunteers}
                 getOptionLabel={(v) => v.name}
                 value={volunteers.filter((v) => startForm.presentVolunteerIds.includes(v._id))}
                 onChange={(_, val) => setStartForm({ ...startForm, presentVolunteerIds: val.map((v) => v._id) })}
+                noOptionsText={
+                  !startForm.cityId
+                    ? 'Select a city first'
+                    : 'No volunteers have marked willingness for this city'
+                }
                 renderInput={(params) => (
-                  <TextField {...params} label="Mark Present Volunteers" margin="normal" />
+                  <TextField
+                    {...params} label="Mark Present Volunteers" margin="normal"
+                    helperText="Only volunteers willing to serve in selected city are shown"
+                  />
                 )}
               />
 
@@ -289,49 +275,6 @@ const ActiveBookstall = () => {
             </CardContent>
           </Card>
         )}
-
-        {/* Upcoming Schedules */}
-        <Typography variant="h5" mb={2}>
-          <CalendarMonth sx={{ mr: 1, verticalAlign: 'middle' }} />
-          Upcoming Bookstalls
-        </Typography>
-
-        {schedules.length === 0 ? (
-          <Card>
-            <CardContent>
-              <Typography color="text.secondary" textAlign="center">
-                No upcoming bookstalls scheduled at the moment.
-              </Typography>
-            </CardContent>
-          </Card>
-        ) : (
-          <Grid container spacing={2}>
-            {schedules.map((s) => {
-              const isMySchedule = isSameId(s.assignedLead?._id || s.assignedLead, user?.id);
-              return (
-                <Grid item xs={12} md={6} key={s._id}>
-                  <Card sx={{ border: isMySchedule ? '2px solid' : 'none', borderColor: 'primary.main' }}>
-                    <CardContent>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                        <Typography variant="h6">{s.city?.name}</Typography>
-                        {isMySchedule && <Chip label="You are Lead" color="primary" size="small" />}
-                      </Box>
-                      <Typography variant="body1">📍 {s.location}</Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        📅 {new Date(s.scheduledDate).toLocaleDateString('en-IN')} at {s.startTime}
-                      </Typography>
-                      {s.assignedLead?.name && (
-                        <Typography variant="body2" mt={0.5}>
-                          👤 Lead: {s.assignedLead.name}
-                        </Typography>
-                      )}
-                    </CardContent>
-                  </Card>
-                </Grid>
-              );
-            })}
-          </Grid>
-        )}
       </Box>
     );
   }
@@ -339,6 +282,7 @@ const ActiveBookstall = () => {
   // ---- ACTIVE BOOKSTALL ----
   return (
     <Box>
+      {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
         <Box>
           <Typography variant="h4">📚 Active Bookstall</Typography>
@@ -361,7 +305,7 @@ const ActiveBookstall = () => {
           )}
           {!isActiveLead && !isPresent && myAttendance && (
             <Button variant="outlined" color="success" startIcon={<ReplayCircleFilled />}
-              onClick={async () => { await rejoinBookstall(bookstall._id); fetchBookstall(); toast.success('You have rejoined the bookstall'); }}>
+              onClick={async () => { await rejoinBookstall(bookstall._id); fetchBookstall(); toast.success('You have rejoined'); }}>
               Rejoin
             </Button>
           )}

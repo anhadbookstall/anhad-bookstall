@@ -1,7 +1,6 @@
 // controllers/bookstallController.js
 // Manages the lifecycle of a bookstall session
 const Bookstall = require('../models/Bookstall');
-const Schedule = require('../models/Schedule');
 const Volunteer = require('../models/Volunteer');
 
 // GET /api/bookstalls - List all bookstalls (admin) or volunteer's bookstalls

@@ -13,7 +13,6 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminBooks from './pages/admin/AdminBooks';
 import AdminVolunteers from './pages/admin/AdminVolunteers';
 import AdminInventory from './pages/admin/AdminInventory';
-import AdminSchedules from './pages/admin/AdminSchedules';
 import AdminCities from './pages/admin/AdminCities';
 import AdminExpenditures from './pages/admin/AdminExpenditures';
 import AdminReports from './pages/admin/AdminReports';
@@ -80,7 +79,6 @@ const AppRoutes = () => (
       <Route path="books" element={<AdminBooks />} />
       <Route path="volunteers" element={<AdminVolunteers />} />
       <Route path="inventory" element={<AdminInventory />} />
-      <Route path="schedules" element={<AdminSchedules />} />
       <Route path="cities" element={<AdminCities />} />
       <Route path="expenditures" element={<AdminExpenditures />} />
       <Route path="reports" element={<AdminReports />} />

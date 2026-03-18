@@ -6,9 +6,10 @@ import {
   DialogContent, DialogActions, TextField, Chip, Tabs, Tab,
   FormControlLabel, Radio, RadioGroup, FormLabel, Avatar, Tooltip,
 } from '@mui/material';
-import { Add, Block, CheckCircle, Delete, PersonAdd } from '@mui/icons-material';
+import { Add, Block, CheckCircle, Delete, PersonAdd, Star, StarBorder } from '@mui/icons-material';
 import {
-  getVolunteers, addVolunteer, suspendVolunteer, revokeSupension, removeVolunteer,
+  getVolunteers, addVolunteer, suspendVolunteer, revokeSupension,
+  removeVolunteer, toggleBookstallLead,
 } from '../../services/api';
 import { toast } from 'react-toastify';
 
@@ -69,6 +70,18 @@ const AdminVolunteers = () => {
     fetchVols();
   };
 
+  const handleToggleLead = async (vol) => {
+    const action = vol.isBookstallLead ? 'remove Bookstall Lead tag from' : 'give Bookstall Lead tag to';
+    if (!window.confirm(`Are you sure you want to ${action} ${vol.name}?`)) return;
+    try {
+      const res = await toggleBookstallLead(vol._id);
+      toast.success(res.data.message);
+      fetchVols();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Error updating lead status');
+    }
+  };
+
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
@@ -96,13 +109,42 @@ const AdminVolunteers = () => {
           <TableBody>
             {volunteers.map((vol) => (
               <TableRow key={vol._id} hover>
-                <TableCell><Avatar src={vol.profilePhoto?.url} sx={{ width: 36, height: 36 }}>{vol.name[0]}</Avatar></TableCell>
-                <TableCell>{vol.name}</TableCell>
+                <TableCell>
+                  <Avatar src={vol.profilePhoto?.url} sx={{ width: 36, height: 36 }}>
+                    {vol.name[0]}
+                  </Avatar>
+                </TableCell>
+                <TableCell>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    {vol.name}
+                    {vol.isBookstallLead && (
+                      <Chip
+                        label="Bookstall Lead"
+                        size="small"
+                        color="warning"
+                        icon={<Star sx={{ fontSize: 14 }} />}
+                      />
+                    )}
+                  </Box>
+                </TableCell>
                 <TableCell>{vol.gmailId}</TableCell>
                 <TableCell>{vol.contactNumber}</TableCell>
                 <TableCell>{vol.currentCity}</TableCell>
                 <TableCell>{new Date(vol.dateOfInclusion).toLocaleDateString('en-IN')}</TableCell>
                 <TableCell>
+                  {/* Bookstall Lead toggle - only for active volunteers */}
+                  {vol.status === 'active' && (
+                    <Tooltip title={vol.isBookstallLead ? 'Remove Bookstall Lead' : 'Make Bookstall Lead'}>
+                      <IconButton
+                        size="small"
+                        color="warning"
+                        onClick={() => handleToggleLead(vol)}
+                      >
+                        {vol.isBookstallLead ? <Star /> : <StarBorder />}
+                      </IconButton>
+                    </Tooltip>
+                  )}
+
                   {vol.status === 'active' && (
                     <Tooltip title="Suspend">
                       <IconButton size="small" color="warning" onClick={() => handleSuspend(vol._id)}>
@@ -126,7 +168,9 @@ const AdminVolunteers = () => {
               </TableRow>
             ))}
             {volunteers.length === 0 && (
-              <TableRow><TableCell colSpan={7} align="center">No volunteers in this category</TableCell></TableRow>
+              <TableRow>
+                <TableCell colSpan={7} align="center">No volunteers in this category</TableCell>
+              </TableRow>
             )}
           </TableBody>
         </Table>

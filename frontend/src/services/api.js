@@ -75,6 +75,7 @@ export const closeBookstall = (id) => api.put(`/bookstalls/${id}/close`);
 export const exitBookstall = (id) => api.put(`/bookstalls/${id}/exit`);
 export const rejoinBookstall = (id) => api.put(`/bookstalls/${id}/rejoin`);
 export const addReflection = (id, text) => api.post(`/bookstalls/${id}/reflection`, { text });
+export const toggleBookstallLead = (id) => api.put(`/volunteers/${id}/toggle-lead`);
 
 // ---- Sales ----
 export const getSales = (params) => api.get('/sales', { params });

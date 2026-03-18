@@ -9,7 +9,7 @@ const getVolunteers = async (req, res) => {
   if (status) filter.status = status;
 
   const volunteers = await Volunteer.find(filter)
-    .populate('willingCities', '_id name')
+    .populate('willingCities', 'name')
     .populate('booksReadByAP', 'title language')
     .sort('name');
   res.json(volunteers);
@@ -113,7 +113,22 @@ const removeVolunteer = async (req, res) => {
   res.json({ message: 'Volunteer removed' });
 };
 
+
+// PUT /api/volunteers/:id/toggle-lead - Toggle Bookstall Lead tag (admin)
+const toggleBookstallLead = async (req, res) => {
+  const vol = await Volunteer.findById(req.params.id);
+  if (!vol) return res.status(404).json({ message: 'Volunteer not found' });
+  vol.isBookstallLead = !vol.isBookstallLead;
+  await vol.save();
+  res.json({
+    message: vol.isBookstallLead
+      ? `${vol.name} is now a Bookstall Lead`
+      : `Bookstall Lead tag removed from ${vol.name}`,
+    volunteer: vol,
+  });
+};
+
 module.exports = {
   getVolunteers, getVolunteer, addVolunteer, updateVolunteer,
-  updateVolunteerPhoto, suspendVolunteer, revokeSupension, removeVolunteer,
+  updateVolunteerPhoto, suspendVolunteer, revokeSupension, removeVolunteer, toggleBookstallLead,
 };

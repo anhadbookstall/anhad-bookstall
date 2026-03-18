@@ -74,6 +74,11 @@ const volunteerSchema = new mongoose.Schema(
       url: String,
       publicId: String, // Cloudinary public_id for deletion
     },
+    // Bookstall Lead tag - set by admin
+    isBookstallLead: {
+      type: Boolean,
+      default: false,
+    },
     // Volunteer status
     status: {
       type: String,
