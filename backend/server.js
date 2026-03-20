@@ -22,6 +22,9 @@ const saleRoutes = require('./routes/sales');
 const expenditureRoutes = require('./routes/expenditures');
 const dashboardRoutes = require('./routes/dashboard');
 const notificationRoutes = require('./routes/notifications');
+const reflectionPostRoutes = require('./routes/reflectionPosts');
+
+require('./models/ReflectionPost');
 
 const app = express();
 
@@ -44,6 +47,7 @@ app.use('/api/sales', saleRoutes);
 app.use('/api/expenditures', expenditureRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/reflection-posts', reflectionPostRoutes);
 
 // Health check endpoint for Render
 app.get('/health', (req, res) => res.json({ status: 'OK', timestamp: new Date() }));

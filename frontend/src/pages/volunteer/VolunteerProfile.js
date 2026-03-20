@@ -62,7 +62,7 @@ const VolunteerProfile = () => {
   if (!vol) return <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}><CircularProgress /></Box>;
 
   return (
-    <Box maxWidth={700}>
+    <Box maxWidth={700} mx="auto">
       <Typography variant="h4" mb={3}>My Profile</Typography>
       <Card>
         <CardContent>

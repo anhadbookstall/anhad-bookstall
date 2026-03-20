@@ -52,6 +52,7 @@ export const uploadVolunteerPhoto = (id, formData) =>
 export const suspendVolunteer = (id) => api.put(`/volunteers/${id}/suspend`);
 export const revokeSupension = (id) => api.put(`/volunteers/${id}/revoke`);
 export const removeVolunteer = (id) => api.delete(`/volunteers/${id}`);
+export const toggleBookstallLead = (id) => api.put(`/volunteers/${id}/toggle-lead`);
 
 // ---- Cities ----
 export const getCities = () => api.get('/cities');
@@ -62,9 +63,6 @@ export const deleteCity = (id) => api.delete(`/cities/${id}`);
 export const getInventoryHistory = () => api.get('/inventory');
 export const updateInventory = (formData) =>
   api.post('/inventory', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
-export const parseInvoice = (formData) =>
-  api.post('/inventory/parse-invoice', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
-export const confirmInvoice = (data) => api.post('/inventory/confirm-invoice', data);
 
 // ---- Bookstalls ----
 export const getBookstalls = (params) => api.get('/bookstalls', { params });
@@ -75,7 +73,6 @@ export const closeBookstall = (id) => api.put(`/bookstalls/${id}/close`);
 export const exitBookstall = (id) => api.put(`/bookstalls/${id}/exit`);
 export const rejoinBookstall = (id) => api.put(`/bookstalls/${id}/rejoin`);
 export const addReflection = (id, text) => api.post(`/bookstalls/${id}/reflection`, { text });
-export const toggleBookstallLead = (id) => api.put(`/volunteers/${id}/toggle-lead`);
 
 // ---- Sales ----
 export const getSales = (params) => api.get('/sales', { params });
@@ -87,10 +84,6 @@ export const getExpenditures = (params) => api.get('/expenditures', { params });
 export const addExpenditure = (data) => api.post('/expenditures', data);
 
 // ---- Schedules ----
-export const getSchedules = (params) => api.get('/schedules', { params });
-export const addSchedule = (data) => api.post('/schedules', data);
-export const updateSchedule = (id, data) => api.put(`/schedules/${id}`, data);
-export const deleteSchedule = (id) => api.delete(`/schedules/${id}`);
 
 // ---- Dashboard ----
 export const getDashboardSummary = (params) => api.get('/dashboard/summary', { params });
@@ -106,3 +99,19 @@ export const markNotificationRead = (id) => api.put(`/notifications/${id}/read`)
 export const markAllNotificationsRead = () => api.put('/notifications/read-all');
 
 export default api;
+
+export const getAllReflections = () => api.get('/bookstalls/reflections/all');
+export const getBookstallSummary = (id) => api.get(`/bookstalls/${id}/summary`);
+
+// Reflection Posts (social feed)
+export const getReflectionPosts = () => api.get('/reflection-posts');
+export const createReflectionPost = (formData) =>
+  api.post('/reflection-posts', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+export const reactToPost = (id, emoji) => api.post(`/reflection-posts/${id}/react`, { emoji });
+export const addComment = (id, text) => api.post(`/reflection-posts/${id}/comments`, { text });
+export const deleteComment = (id, commentId) => api.delete(`/reflection-posts/${id}/comments/${commentId}`);
+export const deleteReflectionPost = (id) => api.delete(`/reflection-posts/${id}`);
+
+export const parseInvoice = (formData) =>
+  api.post('/inventory/parse-invoice', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+export const confirmInvoice = (data) => api.post('/inventory/confirm-invoice', data);

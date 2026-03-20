@@ -1,5 +1,4 @@
 // controllers/bookstallController.js
-// Manages the lifecycle of a bookstall session
 const Bookstall = require('../models/Bookstall');
 const Volunteer = require('../models/Volunteer');
 
@@ -18,7 +17,7 @@ const getBookstalls = async (req, res) => {
   res.json(bookstalls);
 };
 
-// GET /api/bookstalls/active - Currently ongoing bookstall for logged-in volunteer
+// GET /api/bookstalls/active - Currently ongoing bookstall
 const getActiveBookstall = async (req, res) => {
   const bookstall = await Bookstall.findOne({ status: 'ongoing' })
     .populate('city', 'name')
@@ -39,22 +38,15 @@ const getBookstall = async (req, res) => {
 };
 
 // POST /api/bookstalls/start - Bookstall lead starts a bookstall
-// Only the assigned lead for a schedule can start it
 const startBookstall = async (req, res) => {
-  const {
-    scheduleId, cityId, location, presentVolunteerIds,
-    coordinates, specialOccasion,
-  } = req.body;
+  const { cityId, location, presentVolunteerIds, coordinates, specialOccasion } = req.body;
 
   const volunteerId = req.user.id;
 
-  // Verify requester is the assigned lead for this schedule
-  if (scheduleId) {
-    const schedule = await Schedule.findById(scheduleId);
-    if (!schedule) return res.status(404).json({ message: 'Schedule not found' });
-    if (schedule.assignedLead?.toString() !== volunteerId) {
-      return res.status(403).json({ message: 'Only the assigned lead can start this bookstall' });
-    }
+  // Verify requester is a Bookstall Lead
+  const volunteer = await Volunteer.findById(volunteerId);
+  if (!volunteer || !volunteer.isBookstallLead) {
+    return res.status(403).json({ message: 'Only Bookstall Leads can start a bookstall' });
   }
 
   // Build attendance array (lead is always present)
@@ -69,19 +61,18 @@ const startBookstall = async (req, res) => {
 
   if (presentVolunteerIds && Array.isArray(presentVolunteerIds)) {
     for (const id of presentVolunteerIds) {
-      if (id !== volunteerId) {
-        attendance.push({
-          volunteer: id,
-          joinedAt: new Date(),
-          isPresent: true,
-          sessions: [{ joinedAt: new Date() }],
-        });
-      }
+      // Skip if this ID is the lead - lead is already in attendance
+      if (id.toString() === volunteerId.toString()) continue;
+      attendance.push({
+        volunteer: id,
+        joinedAt: new Date(),
+        isPresent: true,
+        sessions: [{ joinedAt: new Date() }],
+      });
     }
   }
 
   const bookstall = await Bookstall.create({
-    schedule: scheduleId || undefined,
     city: cityId,
     location,
     lead: volunteerId,
@@ -90,14 +81,6 @@ const startBookstall = async (req, res) => {
     specialOccasion,
     startedAt: new Date(),
   });
-
-  // Update schedule status to ongoing
-  if (scheduleId) {
-    await Schedule.findByIdAndUpdate(scheduleId, {
-      status: 'ongoing',
-      bookstallRef: bookstall._id,
-    });
-  }
 
   await bookstall.populate([
     { path: 'city', select: 'name' },
@@ -134,12 +117,6 @@ const closeBookstall = async (req, res) => {
   });
 
   await bs.save();
-
-  // Update schedule status to completed
-  if (bs.schedule) {
-    await Schedule.findByIdAndUpdate(bs.schedule, { status: 'completed' });
-  }
-
   res.json({ message: 'Bookstall closed successfully', bookstall: bs });
 };
 
@@ -187,7 +164,6 @@ const addReflection = async (req, res) => {
   const bs = await Bookstall.findById(req.params.id);
   if (!bs) return res.status(404).json({ message: 'Bookstall not found' });
 
-  // Check volunteer was part of this bookstall
   const wasPresent = bs.lead.toString() === req.user.id ||
     bs.attendance.some((a) => a.volunteer.toString() === req.user.id);
 
@@ -195,7 +171,6 @@ const addReflection = async (req, res) => {
     return res.status(403).json({ message: 'You were not part of this bookstall' });
   }
 
-  // Update existing reflection or add new
   const existing = bs.reflections.find((r) => r.volunteer?.toString() === req.user.id);
   if (existing) {
     existing.text = text;
@@ -208,8 +183,111 @@ const addReflection = async (req, res) => {
   res.json({ message: 'Reflection saved' });
 };
 
+
+// GET /api/bookstalls/reflections/all - All reflections as a social feed
+const getAllReflections = async (req, res) => {
+  const bookstalls = await Bookstall.find({ 'reflections.0': { $exists: true } })
+    .populate('reflections.volunteer', 'name profilePhoto')
+    .populate('city', 'name')
+    .select('reflections city location startedAt closedAt')
+    .sort('-startedAt');
+
+  // Flatten all reflections into a single feed sorted by writtenAt
+  const feed = [];
+  for (const bs of bookstalls) {
+    for (const r of bs.reflections) {
+      feed.push({
+        _id: r._id,
+        text: r.text,
+        writtenAt: r.writtenAt,
+        volunteer: r.volunteer,
+        bookstall: {
+          _id: bs._id,
+          city: bs.city,
+          location: bs.location,
+          startedAt: bs.startedAt,
+        },
+      });
+    }
+  }
+
+  feed.sort((a, b) => new Date(b.writtenAt) - new Date(a.writtenAt));
+  res.json(feed);
+};
+
+// GET /api/bookstalls/:id/summary - Bookstall summary stats
+const getBookstallSummary = async (req, res) => {
+  const bs = await Bookstall.findById(req.params.id)
+    .populate('city', 'name')
+    .populate('lead', 'name')
+    .populate('attendance.volunteer', 'name');
+  if (!bs) return res.status(404).json({ message: 'Bookstall not found' });
+
+  const Sale = require('../models/Sale');
+  const sales = await Sale.find({ bookstall: bs._id }).populate('book', 'title');
+
+  // Total hours
+  const endTime = bs.closedAt || new Date();
+  const totalHours = ((endTime - bs.startedAt) / 3600000).toFixed(2);
+
+  // Total books sold
+  const totalBooksSold = sales.reduce((sum, s) => sum + s.quantity, 0);
+
+  // Bookstall efficiency = books sold per hour
+  const bookstallEfficiency = totalHours > 0
+    ? (totalBooksSold / totalHours).toFixed(2)
+    : 0;
+
+  // Volunteer presence hours
+  const volunteerHours = [];
+  // Lead - present for full duration
+  const leadHours = parseFloat(totalHours);
+  volunteerHours.push({ name: bs.lead?.name + ' (Lead)', hours: leadHours });
+
+  // Attendance array - skip the lead to avoid duplicate
+  for (const att of bs.attendance) {
+    if (att.volunteer?._id?.toString() === bs.lead?._id?.toString()) continue;
+    let presenceMs = 0;
+    for (const session of att.sessions) {
+      const exit = session.exitedAt || endTime;
+      presenceMs += exit - session.joinedAt;
+    }
+    const hours = (presenceMs / 3600000).toFixed(2);
+    volunteerHours.push({ name: att.volunteer?.name, hours: parseFloat(hours) });
+  }
+
+  const totalPresenceHours = volunteerHours.reduce((sum, v) => sum + v.hours, 0);
+
+  // Volunteer efficiency = books sold / total presence hours
+  const volunteerEfficiency = totalPresenceHours > 0
+    ? (totalBooksSold / totalPresenceHours).toFixed(2)
+    : 0;
+
+  // Books breakdown
+  const bookBreakdown = {};
+  for (const s of sales) {
+    const title = s.book?.title || 'Unknown';
+    bookBreakdown[title] = (bookBreakdown[title] || 0) + s.quantity;
+  }
+
+  res.json({
+    totalHours: parseFloat(totalHours),
+    totalBooksSold,
+    bookstallEfficiency: parseFloat(bookstallEfficiency),
+    volunteerEfficiency: parseFloat(volunteerEfficiency),
+    volunteerHours,
+    totalPresenceHours: parseFloat(totalPresenceHours).toFixed(2),
+    bookBreakdown,
+    status: bs.status,
+    location: bs.location,
+    city: bs.city?.name,
+    startedAt: bs.startedAt,
+    closedAt: bs.closedAt,
+  });
+};
+
 module.exports = {
   getBookstalls, getActiveBookstall, getBookstall,
   startBookstall, closeBookstall, exitBookstall,
-  rejoinBookstall, addReflection,
+  rejoinBookstall, addReflection, getAllReflections, getBookstallSummary,
 };

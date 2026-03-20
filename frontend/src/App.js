@@ -20,6 +20,7 @@ import AdminReports from './pages/admin/AdminReports';
 import VolunteerHome from './pages/volunteer/VolunteerHome';
 import VolunteerProfile from './pages/volunteer/VolunteerProfile';
 import ActiveBookstall from './pages/volunteer/ActiveBookstall';
+import ReflectionsFeed from './pages/volunteer/ReflectionsFeed';
 
 import Layout from './components/common/Layout';
 import LoadingScreen from './components/common/LoadingScreen';
@@ -89,6 +90,7 @@ const AppRoutes = () => (
       <Route index element={<VolunteerHome />} />
       <Route path="profile" element={<VolunteerProfile />} />
       <Route path="bookstall" element={<ActiveBookstall />} />
+            <Route path="reflections" element={<ReflectionsFeed />} />
     </Route>
 
     {/* Catch-all redirect */}

@@ -31,6 +31,22 @@ const volunteerPhotoStorage = new CloudinaryStorage({
 });
 
 const uploadPurchaserPhoto = multer({ storage: purchaserPhotoStorage });
+// Storage for reflection post media (images and videos)
+const reflectionMediaStorage = new CloudinaryStorage({
+  cloudinary,
+  params: {
+    folder: 'bookstall/reflections',
+    resource_type: 'auto',
+    allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'mp4', 'mov', 'avi', 'webm'],
+    transformation: [{ width: 1080, crop: 'limit' }],
+  },
+});
+
+const uploadReflectionMedia = multer({
+  storage: reflectionMediaStorage,
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB max
+});
+
 const uploadVolunteerPhoto = multer({ storage: volunteerPhotoStorage });
 
 // Delete a photo from Cloudinary by its public_id
@@ -40,4 +56,4 @@ const deletePhoto = async (publicId) => {
   }
 };
 
-module.exports = { cloudinary, uploadPurchaserPhoto, uploadVolunteerPhoto, deletePhoto };
+module.exports = { cloudinary, uploadPurchaserPhoto, uploadVolunteerPhoto, uploadReflectionMedia, deletePhoto };

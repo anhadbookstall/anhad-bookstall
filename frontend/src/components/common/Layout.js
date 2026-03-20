@@ -1,5 +1,4 @@
 // src/components/common/Layout.js
-// Shared layout with sidebar navigation for both Admin and Volunteer
 import React, { useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
@@ -10,14 +9,13 @@ import {
 import {
   Dashboard, MenuBook, People, Inventory,
   LocationCity, AccountBalance, Analytics, Notifications,
-  Menu, Logout, Person, Store, Home,
+  Menu, Logout, Person, Store, Home, AutoStories,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import NotificationPanel from './NotificationPanel';
 
 const DRAWER_WIDTH = 240;
 
-// Navigation items for Admin
 const adminNavItems = [
   { label: 'Dashboard', icon: <Dashboard />, path: '/admin' },
   { label: 'Books', icon: <MenuBook />, path: '/admin/books' },
@@ -28,10 +26,10 @@ const adminNavItems = [
   { label: 'Reports', icon: <Analytics />, path: '/admin/reports' },
 ];
 
-// Navigation items for Volunteer
 const volunteerNavItems = [
   { label: 'Home', icon: <Home />, path: '/volunteer' },
   { label: 'Active Bookstall', icon: <Store />, path: '/volunteer/bookstall' },
+  { label: 'Reflections', icon: <AutoStories />, path: '/volunteer/reflections' },
   { label: 'My Profile', icon: <Person />, path: '/volunteer/profile' },
 ];
 
@@ -49,7 +47,7 @@ const Layout = () => {
 
   const drawer = (
     <Box>
-      <Toolbar sx={{ background: 'primary.main' }}>
+      <Toolbar>
         <Typography variant="h6" color="primary" fontWeight={700} noWrap>
           📚 Anhad Bookstall
         </Typography>
@@ -87,11 +85,7 @@ const Layout = () => {
 
   return (
     <Box sx={{ display: 'flex' }}>
-      {/* App Bar */}
-      <AppBar
-        position="fixed"
-        sx={{ zIndex: (theme) => theme.zIndex.drawer + 1, bgcolor: 'primary.main' }}
-      >
+      <AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1, bgcolor: 'primary.main' }}>
         <Toolbar>
           {isMobile && (
             <IconButton color="inherit" edge="start" onClick={() => setMobileOpen(true)} sx={{ mr: 2 }}>
@@ -101,8 +95,6 @@ const Layout = () => {
           <Typography variant="h6" sx={{ flexGrow: 1, fontWeight: 700 }}>
             {isAdmin ? 'Admin Panel' : `Welcome, ${user?.name || 'Volunteer'}`}
           </Typography>
-
-          {/* Notification Bell */}
           <Tooltip title="Notifications">
             <IconButton color="inherit" onClick={() => setNotifOpen(true)}>
               <Badge badgeContent={unreadCount} color="error">
@@ -110,8 +102,6 @@ const Layout = () => {
               </Badge>
             </IconButton>
           </Tooltip>
-
-          {/* Profile Avatar */}
           <Avatar
             src={user?.profilePhoto?.url}
             sx={{ ml: 1, cursor: 'pointer', width: 36, height: 36 }}
@@ -122,26 +112,21 @@ const Layout = () => {
         </Toolbar>
       </AppBar>
 
-      {/* Sidebar - desktop: permanent, mobile: temporary drawer */}
       <Box component="nav" sx={{ width: { md: DRAWER_WIDTH }, flexShrink: { md: 0 } }}>
         <Drawer
           variant={isMobile ? 'temporary' : 'permanent'}
           open={isMobile ? mobileOpen : true}
           onClose={() => setMobileOpen(false)}
-          sx={{
-            '& .MuiDrawer-paper': { width: DRAWER_WIDTH, boxSizing: 'border-box' },
-          }}
+          sx={{ '& .MuiDrawer-paper': { width: DRAWER_WIDTH, boxSizing: 'border-box' } }}
         >
           {drawer}
         </Drawer>
       </Box>
 
-      {/* Main Content */}
       <Box component="main" sx={{ flexGrow: 1, p: 3, mt: 8, minHeight: '100vh', bgcolor: 'background.default' }}>
-        <Outlet /> {/* Child routes render here */}
+        <Outlet />
       </Box>
 
-      {/* Notification Panel */}
       <NotificationPanel
         open={notifOpen}
         onClose={() => setNotifOpen(false)}

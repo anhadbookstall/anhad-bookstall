@@ -4,7 +4,7 @@ const router = express.Router();
 const {
   getBookstalls, getActiveBookstall, getBookstall,
   startBookstall, closeBookstall, exitBookstall,
-  rejoinBookstall, addReflection,
+  rejoinBookstall, addReflection, getAllReflections, getBookstallSummary,
 } = require('../controllers/bookstallController');
 const { protect, volunteerOnly, authenticated } = require('../middleware/auth');
 
@@ -16,5 +16,7 @@ router.put('/:id/close', protect, volunteerOnly, closeBookstall);
 router.put('/:id/exit', protect, volunteerOnly, exitBookstall);
 router.put('/:id/rejoin', protect, volunteerOnly, rejoinBookstall);
 router.post('/:id/reflection', protect, authenticated, addReflection);
+router.get('/reflections/all', protect, authenticated, getAllReflections);
+router.get('/:id/summary', protect, authenticated, getBookstallSummary);
 
 module.exports = router;

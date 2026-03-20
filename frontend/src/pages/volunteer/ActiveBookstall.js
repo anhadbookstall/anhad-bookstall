@@ -4,17 +4,21 @@ import {
   Box, Typography, Button, Card, CardContent, Grid, TextField,
   MenuItem, FormControlLabel, Checkbox, Accordion, AccordionSummary,
   AccordionDetails, CircularProgress, Alert, Autocomplete, Chip, Avatar,
+  Dialog, DialogTitle, DialogContent, DialogActions, Table, TableBody,
+  TableCell, TableHead, TableRow, Divider,
 } from '@mui/material';
 import {
-  ExpandMore, PlayArrow, Stop, ExitToApp, ReplayCircleFilled, CameraAlt, Store,
+  ExpandMore, PlayArrow, Stop, ExitToApp, ReplayCircleFilled,
+  CameraAlt, Store, BarChart, AccessTime, MenuBook, Speed,
 } from '@mui/icons-material';
 import {
   getActiveBookstall, startBookstall, closeBookstall, exitBookstall,
-  rejoinBookstall, addSale, addReflection, getBooks, getCities, getVolunteers,
+  rejoinBookstall, addSale, getBooks, getCities,
+  getVolunteers, getBookstallSummary, createReflectionPost,
 } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
+import { getMe } from '../../services/api';
 import { toast } from 'react-toastify';
-
 const AGE_CATEGORIES = [
   '0-5','6-10','11-15','16-20','21-25','26-30',
   '31-35','36-40','41-45','46-50','51-55','56-60',
@@ -32,6 +36,104 @@ const isSameId = (id1, id2) => {
   return id1.toString() === id2.toString();
 };
 
+// ---- Summary Dialog Component ----
+const SummaryDialog = ({ bookstallId, open, onClose }) => {
+  const [summary, setSummary] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (open && bookstallId) {
+      setLoading(true);
+      getBookstallSummary(bookstallId)
+        .then((r) => setSummary(r.data))
+        .catch(() => toast.error('Error loading summary'))
+        .finally(() => setLoading(false));
+    }
+  }, [open, bookstallId]);
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <BarChart color="primary" />
+          Bookstall Summary
+        </Box>
+      </DialogTitle>
+      <DialogContent>
+        {loading && <CircularProgress sx={{ display: 'block', mx: 'auto', my: 3 }} />}
+        {summary && (
+          <Box>
+            <Typography variant="body2" color="text.secondary" mb={2}>
+              📍 {summary.city} — {summary.location} | {new Date(summary.startedAt).toLocaleDateString('en-IN')}
+            </Typography>
+
+            {/* Stats Cards */}
+            <Grid container spacing={2} mb={2}>
+              {[
+                { icon: <AccessTime />, label: 'Total Hours', value: summary.totalHours, color: 'primary.main' },
+                { icon: <MenuBook />, label: 'Books Sold', value: summary.totalBooksSold, color: 'success.main' },
+                { icon: <Speed />, label: 'Bookstall Efficiency', value: summary.bookstallEfficiency, color: 'warning.main' },
+                { icon: <Speed />, label: 'Volunteer Efficiency', value: summary.volunteerEfficiency, color: 'info.main' },
+              ].map((stat) => (
+                <Grid item xs={6} key={stat.label}>
+                  <Card variant="outlined" sx={{ textAlign: 'center', p: 1 }}>
+                    <Box sx={{ color: stat.color }}>{stat.icon}</Box>
+                    <Typography variant="h5" fontWeight={700} color={stat.color}>
+                      {stat.value}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">{stat.label}</Typography>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
+
+            {/* Books Breakdown */}
+            {Object.keys(summary.bookBreakdown).length > 0 && (
+              <Box mb={2}>
+                <Typography variant="subtitle1" fontWeight={600} mb={1}>Books Sold Breakdown</Typography>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow sx={{ bgcolor: 'grey.100' }}>
+                      <TableCell>Book</TableCell>
+                      <TableCell align="right">Qty</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {Object.entries(summary.bookBreakdown).map(([title, qty]) => (
+                      <TableRow key={title}>
+                        <TableCell>{title}</TableCell>
+                        <TableCell align="right">{qty}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </Box>
+            )}
+
+            {/* Volunteer Hours */}
+            <Divider sx={{ my: 1 }} />
+            <Typography variant="subtitle1" fontWeight={600} mb={1}>Volunteer Presence</Typography>
+            {summary.volunteerHours.map((v, i) => (
+              <Box key={i} sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
+                <Typography variant="body2">{v.name}</Typography>
+                <Typography variant="body2" fontWeight={600}>{v.hours} hrs</Typography>
+              </Box>
+            ))}
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', pt: 1, borderTop: '1px solid', borderColor: 'divider' }}>
+              <Typography variant="body2" fontWeight={600}>Total Presence Hours</Typography>
+              <Typography variant="body2" fontWeight={600}>{summary.totalPresenceHours} hrs</Typography>
+            </Box>
+          </Box>
+        )}
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>Close</Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
+
+// ---- Main Component ----
 const ActiveBookstall = () => {
   const { user } = useAuth();
 
@@ -42,31 +144,42 @@ const ActiveBookstall = () => {
   const [volunteers, setVolunteers] = useState([]);
   const [showStartForm, setShowStartForm] = useState(false);
   const [reflection, setReflection] = useState('');
+  const [summaryOpen, setSummaryOpen] = useState(false);
+  const [summaryBookstallId, setSummaryBookstallId] = useState(null);
+  const [isLead, setIsLead] = useState(user?.isBookstallLead || false);
 
   const [startForm, setStartForm] = useState({
-    cityId: '',
-    location: '',
-    presentVolunteerIds: [],
-    specialOccasion: '',
+    cityId: '', location: '', presentVolunteerIds: [], specialOccasion: '',
   });
 
   const [saleForm, setSaleForm] = useState(emptySaleForm);
   const [salePhoto, setSalePhoto] = useState(null);
   const [saleLoading, setSaleLoading] = useState(false);
 
-  const isActiveLead = bookstall && isSameId(bookstall.lead?._id || bookstall.lead, user?.id);
+  const isActiveLead = bookstall && (
+    isSameId(bookstall.lead?._id, user?.id) ||
+    isSameId(bookstall.lead, user?.id)
+  );
+
+  // Fix 1: Only check attendance array for non-lead presence (lead shown separately)
   const myAttendance = bookstall?.attendance?.find((a) =>
     isSameId(a.volunteer?._id || a.volunteer, user?.id)
   );
   const isPresent = isActiveLead || myAttendance?.isPresent;
 
+  const fetchBooks = () => {
+    getBooks().then((r) => setBooks(r.data)).catch(() => {});
+  };
+
   useEffect(() => {
     fetchBookstall();
-    getBooks().then((r) => setBooks(r.data)).catch(() => {});
+    fetchBooks();
     getCities().then((r) => setCities(r.data)).catch(() => {});
     getVolunteers({ status: 'active' }).then((r) => {
       setVolunteers(r.data.filter((v) => !isSameId(v._id, user?.id)));
     }).catch(() => {});
+    // Fetch fresh user data to get latest isBookstallLead value
+    getMe().then((r) => setIsLead(r.data.isBookstallLead || false)).catch(() => {});
   }, []);
 
   const fetchBookstall = async () => {
@@ -104,6 +217,7 @@ const ActiveBookstall = () => {
     }
   };
 
+  // Fix 2: Refresh books immediately after sale saved
   const handleSale = async () => {
     if (!saleForm.bookId || !saleForm.soldPrice || !saleForm.gender || !saleForm.ageCategory) {
       return toast.error('Please fill all required sale fields');
@@ -128,6 +242,7 @@ const ActiveBookstall = () => {
       toast.success('Sale recorded! ✅');
       setSaleForm(emptySaleForm);
       setSalePhoto(null);
+      fetchBooks(); // Fix 2: Immediately refresh book stock after sale
     } catch (err) {
       toast.error(err.response?.data?.message || 'Error recording sale');
     } finally {
@@ -135,12 +250,20 @@ const ActiveBookstall = () => {
     }
   };
 
+  // Fix 3: Show summary before actually closing
   const handleClose = async () => {
     if (!window.confirm('Close the bookstall? This will end the session for everyone.')) return;
     try {
       await closeBookstall(bookstall._id);
       toast.success('Bookstall closed successfully');
+      setSummaryBookstallId(bookstall._id);
+      setSummaryOpen(true);
       setBookstall(null);
+      // Reset start form and reload volunteers fresh (excluding lead)
+      setStartForm({ cityId: '', location: '', presentVolunteerIds: [], specialOccasion: '' });
+      getVolunteers({ status: 'active' }).then((r) => {
+        setVolunteers(r.data.filter((v) => !isSameId(v._id, user?.id)));
+      }).catch(() => {});
     } catch (err) {
       toast.error(err.response?.data?.message || 'Error closing bookstall');
     }
@@ -149,15 +272,19 @@ const ActiveBookstall = () => {
   const handleReflection = async () => {
     if (!reflection.trim()) return;
     try {
-      await addReflection(bookstall._id, reflection);
-      toast.success('Reflection saved! ✅');
+      const fd = new FormData();
+      fd.append('text', reflection.trim());
+      fd.append('bookstallId', bookstall._id);
+      fd.append('bookstallCity', bookstall.city?.name || '');
+      fd.append('bookstallLocation', bookstall.location || '');
+      await createReflectionPost(fd);
+      toast.success('Reflection posted to feed! ✅');
       setReflection('');
     } catch {
       toast.error('Error saving reflection');
     }
   };
 
-  // Volunteers willing to serve in selected city
   const cityVolunteers = startForm.cityId
     ? volunteers.filter((v) =>
         v.willingCities?.some((c) => isSameId(c._id || c, startForm.cityId))
@@ -175,46 +302,31 @@ const ActiveBookstall = () => {
 
   // ---- NO ACTIVE BOOKSTALL ----
   if (!bookstall) {
-    // Non-leads see a simple message
-    if (!user?.isBookstallLead) {
-      return (
-        <Box>
-          <Alert severity="info" icon={<Store />} sx={{ mb: 2, fontSize: '1rem' }}>
-            There is no active bookstall at present.
-          </Alert>
-          <Typography variant="body2" color="text.secondary">
-            You will be notified when a bookstall is started by a Bookstall Lead.
-          </Typography>
-        </Box>
-      );
-    }
-
-    // Lead sees start option
     return (
       <Box>
+        <SummaryDialog
+          bookstallId={summaryBookstallId}
+          open={summaryOpen}
+          onClose={() => setSummaryOpen(false)}
+        />
+
         <Alert severity="info" icon={<Store />} sx={{ mb: 4, fontSize: '1rem' }}>
           There is no active bookstall at present.
         </Alert>
 
-        {/* Start Button */}
-        {!showStartForm && (
+        {isLead && !showStartForm && (
           <Button
             variant="contained" color="success" size="large"
-            startIcon={<PlayArrow />}
-            onClick={() => setShowStartForm(true)}
-            sx={{ mb: 4 }}
+            startIcon={<PlayArrow />} onClick={() => setShowStartForm(true)} sx={{ mb: 4 }}
           >
             Start a Bookstall
           </Button>
         )}
 
-        {/* Start Form */}
-        {showStartForm && (
+        {isLead && showStartForm && (
           <Card sx={{ mb: 4, border: '2px solid', borderColor: 'success.main' }}>
             <CardContent>
-              <Typography variant="h6" mb={2} color="success.main">
-                Start Bookstall
-              </Typography>
+              <Typography variant="h6" mb={2} color="success.main">Start Bookstall</Typography>
 
               <TextField
                 select fullWidth label="City *" value={startForm.cityId}
@@ -234,7 +346,7 @@ const ActiveBookstall = () => {
                 fullWidth label="Special Occasion / Event (optional)"
                 value={startForm.specialOccasion}
                 onChange={(e) => setStartForm({ ...startForm, specialOccasion: e.target.value })}
-                margin="normal" placeholder="e.g. Book Fair, Puja Celebration"
+                margin="normal"
               />
 
               <Autocomplete
@@ -243,37 +355,30 @@ const ActiveBookstall = () => {
                 getOptionLabel={(v) => v.name}
                 value={volunteers.filter((v) => startForm.presentVolunteerIds.includes(v._id))}
                 onChange={(_, val) => setStartForm({ ...startForm, presentVolunteerIds: val.map((v) => v._id) })}
-                noOptionsText={
-                  !startForm.cityId
-                    ? 'Select a city first'
-                    : 'No volunteers have marked willingness for this city'
-                }
+                noOptionsText={!startForm.cityId ? 'Select a city first' : 'No volunteers willing for this city'}
                 renderInput={(params) => (
-                  <TextField
-                    {...params} label="Mark Present Volunteers" margin="normal"
-                    helperText="Only volunteers willing to serve in selected city are shown"
-                  />
+                  <TextField {...params} label="Mark Present Volunteers" margin="normal"
+                    helperText="Only volunteers willing to serve in selected city are shown" />
                 )}
               />
 
-              <Alert severity="info" sx={{ mt: 2 }}>
-                📍 GPS coordinates will be captured automatically when you start.
-              </Alert>
+              <Alert severity="info" sx={{ mt: 2 }}>📍 GPS coordinates will be captured automatically.</Alert>
 
               <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
-                <Button variant="outlined" fullWidth onClick={() => setShowStartForm(false)}>
-                  Cancel
-                </Button>
-                <Button
-                  variant="contained" color="success" size="large"
-                  startIcon={<PlayArrow />} fullWidth
-                  onClick={handleStart} disabled={loading}
-                >
+                <Button variant="outlined" fullWidth onClick={() => setShowStartForm(false)}>Cancel</Button>
+                <Button variant="contained" color="success" size="large"
+                  startIcon={<PlayArrow />} fullWidth onClick={handleStart} disabled={loading}>
                   Confirm Start
                 </Button>
               </Box>
             </CardContent>
           </Card>
+        )}
+
+        {!isLead && (
+          <Typography variant="body2" color="text.secondary">
+            You will be notified when a bookstall is started by a Bookstall Lead.
+          </Typography>
         )}
       </Box>
     );
@@ -282,6 +387,12 @@ const ActiveBookstall = () => {
   // ---- ACTIVE BOOKSTALL ----
   return (
     <Box>
+      <SummaryDialog
+        bookstallId={bookstall._id}
+        open={summaryOpen}
+        onClose={() => setSummaryOpen(false)}
+      />
+
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
         <Box>
@@ -296,10 +407,18 @@ const ActiveBookstall = () => {
             Started at {new Date(bookstall.startedAt).toLocaleTimeString('en-IN')}
           </Typography>
         </Box>
-        <Box sx={{ display: 'flex', gap: 1 }}>
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+          {/* Fix 3: Summary button visible during active bookstall */}
+          <Button
+            variant="outlined" color="info" startIcon={<BarChart />}
+            onClick={() => setSummaryOpen(true)}
+          >
+            Summary
+          </Button>
+
           {!isActiveLead && isPresent && (
             <Button variant="outlined" color="warning" startIcon={<ExitToApp />}
-              onClick={async () => { await exitBookstall(bookstall._id); fetchBookstall(); toast.success('You have exited the bookstall'); }}>
+              onClick={async () => { await exitBookstall(bookstall._id); fetchBookstall(); toast.success('You have exited'); }}>
               Exit
             </Button>
           )}
@@ -317,23 +436,27 @@ const ActiveBookstall = () => {
         </Box>
       </Box>
 
-      {/* Attendance */}
+      {/* Fix 1: Attendance - lead shown once with (Lead) chip, attendance array filtered to exclude lead */}
       <Card sx={{ mb: 3 }}>
         <CardContent>
           <Typography variant="h6" mb={1}>Attendance</Typography>
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+            {/* Lead shown once explicitly */}
             <Chip
               avatar={<Avatar src={bookstall.lead?.profilePhoto?.url}>{bookstall.lead?.name?.[0]}</Avatar>}
               label={`${bookstall.lead?.name} (Lead)`} color="primary"
             />
-            {bookstall.attendance?.map((a) => (
-              <Chip key={a._id}
-                avatar={<Avatar src={a.volunteer?.profilePhoto?.url}>{a.volunteer?.name?.[0]}</Avatar>}
-                label={a.volunteer?.name}
-                color={a.isPresent ? 'success' : 'default'}
-                variant={a.isPresent ? 'filled' : 'outlined'}
-              />
-            ))}
+            {/* Attendance array - skip the lead to avoid duplicate */}
+            {bookstall.attendance
+              ?.filter((a) => !isSameId(a.volunteer?._id || a.volunteer, bookstall.lead?._id || bookstall.lead))
+              .map((a) => (
+                <Chip key={a._id}
+                  avatar={<Avatar src={a.volunteer?.profilePhoto?.url}>{a.volunteer?.name?.[0]}</Avatar>}
+                  label={a.volunteer?.name}
+                  color={a.isPresent ? 'success' : 'default'}
+                  variant={a.isPresent ? 'filled' : 'outlined'}
+                />
+              ))}
           </Box>
         </CardContent>
       </Card>
@@ -347,11 +470,13 @@ const ActiveBookstall = () => {
           <AccordionDetails>
             <Grid container spacing={2}>
               <Grid item xs={12} md={6}>
+                {/* Fix 2: Books list is refreshed after each sale so stock is up to date */}
                 <Autocomplete
-                  options={books}
+                  options={books.filter((b) => b.currentStock > 0)} // Only show books with stock > 0
                   getOptionLabel={(b) => `${b.title} (Stock: ${b.currentStock})`}
                   value={books.find((b) => b._id === saleForm.bookId) || null}
                   onChange={(_, val) => setSaleForm({ ...saleForm, bookId: val?._id || '', soldPrice: val?.unitCost || '' })}
+                  noOptionsText="No books available in stock"
                   renderInput={(params) => <TextField {...params} label="Book Title *" />}
                 />
               </Grid>
@@ -422,7 +547,7 @@ const ActiveBookstall = () => {
         </Alert>
       )}
 
-      {/* Reflection */}
+      {/* Fix 4: Reflection form */}
       <Accordion sx={{ mt: 2 }}>
         <AccordionSummary expandIcon={<ExpandMore />}>
           <Typography variant="h6">✍️ Write Reflection</Typography>
