@@ -7,7 +7,7 @@ import {
   Divider, useMediaQuery, useTheme, Tooltip,
 } from '@mui/material';
 import {
-  Dashboard, MenuBook, People, Inventory,
+  Dashboard, MenuBook, People,
   LocationCity, AccountBalance, Analytics, Notifications,
   Menu, Logout, Person, Store, Home, AutoStories,
 } from '@mui/icons-material';
@@ -20,7 +20,6 @@ const adminNavItems = [
   { label: 'Dashboard', icon: <Dashboard />, path: '/admin' },
   { label: 'Books', icon: <MenuBook />, path: '/admin/books' },
   { label: 'Volunteers', icon: <People />, path: '/admin/volunteers' },
-  { label: 'Inventory', icon: <Inventory />, path: '/admin/inventory' },
   { label: 'Cities', icon: <LocationCity />, path: '/admin/cities' },
   { label: 'Expenditures', icon: <AccountBalance />, path: '/admin/expenditures' },
   { label: 'Reports', icon: <Analytics />, path: '/admin/reports' },

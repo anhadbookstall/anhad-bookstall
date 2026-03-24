@@ -2,22 +2,31 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Typography, Alert, Button } from '@mui/material';
 import { Store } from '@mui/icons-material';
-import { getActiveBookstall } from '../../services/api';
+import { getActiveBookstall, getCurrentTheme } from '../../services/api';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 
 const VolunteerHome = () => {
   const [activeBookstall, setActiveBookstall] = useState(null);
+  const [theme, setTheme] = useState(null);
   const { user } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
     getActiveBookstall().then((r) => setActiveBookstall(r.data)).catch(() => {});
+    getCurrentTheme().then((r) => setTheme(r.data)).catch(() => {});
   }, []);
 
   return (
     <Box>
       <Typography variant="h4" mb={3}>Welcome, {user?.name}! 👋</Typography>
+
+      {/* Monthly Theme Banner */}
+      {theme && (
+        <Alert severity="success" icon="🌿" sx={{ mb: 3, fontWeight: 600, fontSize: '1rem' }}>
+          This Month's Theme: <strong>{theme.theme}</strong>
+        </Alert>
+      )}
 
       {activeBookstall ? (
         <Alert severity="success" sx={{ mb: 3 }}

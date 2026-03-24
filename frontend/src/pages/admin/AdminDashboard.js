@@ -3,18 +3,21 @@
 import React, { useState, useEffect } from 'react';
 import {
   Grid, Card, CardContent, Typography, Box, CircularProgress,
-  MenuItem, Select, FormControl, InputLabel, Button,
+  MenuItem, Select, FormControl, InputLabel, Button, TextField,
+  IconButton, Chip, Divider,
 } from '@mui/material';
 import {
-  MenuBook, People, Store, TrendingUp, Warning, AccountBalance, Inventory,
+  MenuBook, People, Store, TrendingUp, Warning, AccountBalance, Inventory, Delete,
 } from '@mui/icons-material';
 import {
   Chart as ChartJS, CategoryScale, LinearScale, BarElement, LineElement,
   PointElement, ArcElement, Title, Tooltip, Legend,
 } from 'chart.js';
 import { Bar, Line, Doughnut } from 'react-chartjs-2';
+import { toast } from 'react-toastify';
 import {
   getDashboardSummary, getBookSalesChart, getGenderAgeChart, getSalesTrend,
+  getAllThemes, setMonthlyTheme, deleteTheme,
 } from '../../services/api';
 
 // Register Chart.js components
@@ -47,6 +50,8 @@ const AdminDashboard = () => {
   const [salesTrend, setSalesTrend] = useState([]);
   const [trendDays, setTrendDays] = useState(30);
   const [loading, setLoading] = useState(true);
+  const [themes, setThemes] = useState([]);
+  const [themeForm, setThemeForm] = useState({ year: new Date().getFullYear(), month: new Date().getMonth() + 1, theme: '' });
 
   const fetchData = async () => {
     setLoading(true);
@@ -69,6 +74,29 @@ const AdminDashboard = () => {
   };
 
   useEffect(() => { fetchData(); }, [trendDays]);
+
+  useEffect(() => {
+    getAllThemes().then((r) => setThemes(r.data)).catch(() => {});
+  }, []);
+
+  const handleSetTheme = async () => {
+    if (!themeForm.theme.trim()) return;
+    try {
+      await setMonthlyTheme(themeForm);
+      const res = await getAllThemes();
+      setThemes(res.data);
+      setThemeForm((f) => ({ ...f, theme: '' }));
+      toast.success('Theme set successfully!');
+    } catch {
+      toast.error('Error setting theme');
+    }
+  };
+
+  const handleDeleteTheme = async (id) => {
+    await deleteTheme(id);
+    setThemes((prev) => prev.filter((t) => t._id !== id));
+    toast.success('Theme deleted');
+  };
 
   return (
     <Box>
@@ -113,6 +141,65 @@ const AdminDashboard = () => {
           />
         </Grid>
       </Grid>
+
+      {/* Monthly Theme Management */}
+      <Card sx={{ mb: 3 }}>
+        <CardContent>
+          <Typography variant="h6" mb={2}>🌿 Monthly Theme</Typography>
+          <Grid container spacing={2} alignItems="center">
+            <Grid item xs={6} md={2}>
+              <TextField
+                select fullWidth label="Year" size="small"
+                value={themeForm.year}
+                onChange={(e) => setThemeForm({ ...themeForm, year: parseInt(e.target.value) })}
+              >
+                {[2024, 2025, 2026, 2027].map((y) => <MenuItem key={y} value={y}>{y}</MenuItem>)}
+              </TextField>
+            </Grid>
+            <Grid item xs={6} md={2}>
+              <TextField
+                select fullWidth label="Month" size="small"
+                value={themeForm.month}
+                onChange={(e) => setThemeForm({ ...themeForm, month: parseInt(e.target.value) })}
+              >
+                {['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].map((m, i) => (
+                  <MenuItem key={i + 1} value={i + 1}>{m}</MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth label="Theme (e.g. #ClimateAwarenessMonth)" size="small"
+                value={themeForm.theme}
+                onChange={(e) => setThemeForm({ ...themeForm, theme: e.target.value })}
+              />
+            </Grid>
+            <Grid item xs={12} md={2}>
+              <Button variant="contained" fullWidth onClick={handleSetTheme}>
+                Set Theme
+              </Button>
+            </Grid>
+          </Grid>
+
+          {themes.length > 0 && (
+            <Box sx={{ mt: 2 }}>
+              <Divider sx={{ mb: 1 }} />
+              <Typography variant="body2" color="text.secondary" mb={1}>Past & Current Themes:</Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                {themes.map((t) => (
+                  <Chip
+                    key={t._id}
+                    label={`${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][t.month - 1]} ${t.year}: ${t.theme}`}
+                    onDelete={() => handleDeleteTheme(t._id)}
+                    color={t.month === new Date().getMonth() + 1 && t.year === new Date().getFullYear() ? 'success' : 'default'}
+                    size="small"
+                  />
+                ))}
+              </Box>
+            </Box>
+          )}
+        </CardContent>
+      </Card>
 
       <Grid container spacing={3}>
         {/* Sales Trend Line Chart */}

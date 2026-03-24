@@ -273,9 +273,33 @@ const getInventoryHistory = async (req, res) => {
   res.json(history);
 };
 
+// GET /api/inventory/book/:bookId - Last 5 transactions for a specific book
+const getBookInventoryHistory = async (req, res) => {
+  const updates = await InventoryUpdate.find({ 'items.book': req.params.bookId })
+    .sort('-dateReceived')
+    .limit(5)
+    .select('items dateReceived notes');
+
+  // Filter items to only show the relevant book
+  console.log('bookId param:', req.params.bookId);
+  console.log('updates found:', updates.length);
+  if (updates.length > 0) {
+    console.log('first item book:', updates[0].items[0]?.book?.toString());
+  }
+
+  const result = updates.map((u) => ({
+    dateReceived: u.dateReceived,
+    notes: u.notes,
+    quantity: u.items.find((it) => it.book?.toString() === req.params.bookId)?.quantity || 0,
+  }));
+
+  res.json(result);
+};
+
 module.exports = {
   updateInventory,
   getInventoryHistory,
   parseInvoice,
   confirmInvoice,
+  getBookInventoryHistory,
 };

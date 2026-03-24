@@ -115,3 +115,10 @@ export const deleteReflectionPost = (id) => api.delete(`/reflection-posts/${id}`
 export const parseInvoice = (formData) =>
   api.post('/inventory/parse-invoice', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
 export const confirmInvoice = (data) => api.post('/inventory/confirm-invoice', data);
+
+export const getCurrentTheme = () => api.get('/themes/current');
+export const getAllThemes = () => api.get('/themes');
+export const setMonthlyTheme = (data) => api.post('/themes', data);
+export const deleteTheme = (id) => api.delete(`/themes/${id}`);
+
+export const getBookInventoryHistory = (bookId) => api.get(`/inventory/book/${bookId}`);
