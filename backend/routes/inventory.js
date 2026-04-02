@@ -6,6 +6,7 @@ const {
   getInventoryHistory,
   parseInvoice,
   confirmInvoice,
+  getBookInventoryHistory,
 } = require('../controllers/inventoryController');
 const { protect, adminOnly } = require('../middleware/auth');
 const multer = require('multer');
@@ -32,5 +33,7 @@ router.post('/', protect, adminOnly, updateInventory);
 router.post('/parse-invoice', protect, adminOnly, uploadInvoice.single('invoice'), parseInvoice);
 // Step 2: Admin confirmed preview, now update stock
 router.post('/confirm-invoice', protect, adminOnly, confirmInvoice);
+
+router.get('/book/:bookId', protect, adminOnly, getBookInventoryHistory);
 
 module.exports = router;
