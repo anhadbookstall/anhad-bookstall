@@ -85,15 +85,11 @@ const AdminBooks = () => {
   };
 
   const handleManualSubmit = async () => {
-    const filledItems = items.filter((it) => it.bookId && it.quantity);
+    const filledItems = items.filter((it) => it.bookId && it.quantity && it.quantity > 0);
     if (filledItems.length === 0) return toast.error('Please add at least one book with quantity');
     setLoading(true);
     try {
-      const fd = new FormData();
-      fd.append('items', JSON.stringify(filledItems));
-      fd.append('dateReceived', dateReceived);
-      fd.append('notes', notes);
-      await updateInventory(fd);
+      await updateInventory({ items: filledItems, dateReceived, notes });
       toast.success('Inventory updated successfully!');
       setInvDialogOpen(false);
       resetInvDialog();
@@ -343,18 +339,17 @@ const AdminBooks = () => {
                 {items.map((item, i) => (
                   <Grid container spacing={2} key={i} alignItems="center" sx={{ mb: 1 }}>
                     <Grid item xs={7}>
-                      <TextField select fullWidth label="Book" value={item.bookId}
-                        onChange={(e) => updateItem(i, 'bookId', e.target.value)}>
-                        {books.map((b) => (
-                          <MenuItem key={b._id} value={b._id}>
-                            {b.title} (Stock: {b.currentStock})
-                          </MenuItem>
-                        ))}
-                      </TextField>
+                      <Autocomplete
+                        options={books}
+                        getOptionLabel={(b) => `${b.title} (Stock: ${b.currentStock})`}
+                        value={books.find((b) => b._id === item.bookId) || null}
+                        onChange={(_, val) => updateItem(i, 'bookId', val?._id || '')}
+                        renderInput={(params) => <TextField {...params} label="Book" />}
+                      />
                     </Grid>
                     <Grid item xs={3}>
                       <TextField fullWidth type="number" label="Qty" value={item.quantity}
-                        onChange={(e) => updateItem(i, 'quantity', parseInt(e.target.value))}
+                        onChange={(e) => updateItem(i, 'quantity', parseInt(e.target.value) || 1)}
                         inputProps={{ min: 1 }} />
                     </Grid>
                     <Grid item xs={2}>

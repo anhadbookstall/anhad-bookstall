@@ -106,7 +106,7 @@ const parseInvoiceText = (text) => {
     const normalized = line.replace(/\s+/g, ' ');
 
     // Only process book item lines - now matches regardless of extra spaces
-    if (!normalized.includes('- Book Cover Type:')) continue;
+    if (!normalized.includes('Book Cover Type:')) continue;
 
     // Extract English title from brackets e.g. "(Jwala)"
     // For English-only books e.g. "Ego - Book Cover Type:"
@@ -118,7 +118,7 @@ const parseInvoiceText = (text) => {
       extractedTitle = bracketMatch[1].trim();
     } else {
       // English only book - everything before " - Book Cover Type:"
-      const englishMatch = normalized.match(/^([A-Za-z0-9\s\*\,\.\/\-]+?)\s*-\s*Book Cover Type:/);
+      const englishMatch = normalized.match(/^([A-Za-z0-9\s\*\,\.\/\-\'\:]+?)\s*-\s*Book Cover Type:/);
       if (englishMatch) {
         extractedTitle = englishMatch[1].trim();
       }
@@ -226,6 +226,7 @@ const confirmInvoice = async (req, res) => {
 // ----------------------------------------------------------------
 const updateInventory = async (req, res) => {
   const { dateReceived, notes } = req.body;
+  console.log('updateInventory req.body:', req.body);
 
   let items = [];
   if (req.body.items) {

@@ -61,8 +61,12 @@ export const deleteCity = (id) => api.delete(`/cities/${id}`);
 
 // ---- Inventory ----
 export const getInventoryHistory = () => api.get('/inventory');
-export const updateInventory = (formData) =>
-  api.post('/inventory', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+export const updateInventory = (data) => {
+  if (data instanceof FormData) {
+    return api.post('/inventory', data, { headers: { 'Content-Type': 'multipart/form-data' } });
+  }
+  return api.post('/inventory', data);
+};
 
 // ---- Bookstalls ----
 export const getBookstalls = (params) => api.get('/bookstalls', { params });
