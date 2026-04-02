@@ -11,6 +11,8 @@ import {
 import { Add, Edit, Delete, Search, Warning, ExpandMore, ExpandLess, UploadFile, CheckCircle } from '@mui/icons-material';
 import { getBooks, addBook, updateBook, deleteBook, getInventoryHistory, updateInventory, parseInvoice, confirmInvoice, getBookInventoryHistory } from '../../services/api';
 import { toast } from 'react-toastify';
+import { useSort } from '../../utils/useSort';
+import SortableTableCell from '../../components/common/SortableTableCell';
 
 const LANGUAGES = ['Hindi', 'English', 'Bangla', 'Odiya'];
 const PUBLICATIONS = ['PAF', 'Penguin', 'HarperCollins', 'Jaico', 'Rajpal & Sons', 'Prabhat Prakashan', 'Other'];
@@ -41,6 +43,9 @@ const AdminBooks = () => {
   const [invoiceParsing, setInvoiceParsing] = useState(false);
   const [invoicePreview, setInvoicePreview] = useState(null);
   const [previewItems, setPreviewItems] = useState([]);
+
+  const { sorted: sortedBooks0, sortField: sf0, sortDir: sd0, handleSort: hs0 } = useSort(books);
+  const { sorted: sortedBooks1, sortField: sf1, sortDir: sd1, handleSort: hs1 } = useSort(books);
 
   const fetchBooks = async () => {
     const res = await getBooks({ search });
@@ -207,13 +212,16 @@ const AdminBooks = () => {
         <Table>
           <TableHead sx={{ bgcolor: 'primary.main' }}>
             <TableRow>
-              {['Title', 'Language', 'Publication', 'Unit Cost', 'Subjects', 'Actions'].map((h) => (
-                <TableCell key={h} sx={{ color: 'white', fontWeight: 700 }}>{h}</TableCell>
-              ))}
+              <SortableTableCell label="Title" field="title" sortField={sf0} sortDir={sd0} onSort={hs0} />
+              <SortableTableCell label="Language" field="language" sortField={sf0} sortDir={sd0} onSort={hs0} />
+              <SortableTableCell label="Publication" field="publication" sortField={sf0} sortDir={sd0} onSort={hs0} />
+              <SortableTableCell label="Unit Cost" field="unitCost" sortField={sf0} sortDir={sd0} onSort={hs0} />
+              <SortableTableCell label="Subjects" sortField={sf0} sortDir={sd0} onSort={hs0} />
+              <SortableTableCell label="Actions" sortField={sf0} sortDir={sd0} onSort={hs0} />
             </TableRow>
           </TableHead>
           <TableBody>
-            {books.map((book) => (
+            {sortedBooks0.map((book) => (
               <TableRow key={book._id} hover>
                 <TableCell>{book.title}</TableCell>
                 <TableCell>{book.language}</TableCell>
@@ -252,13 +260,16 @@ const AdminBooks = () => {
           <Table>
             <TableHead sx={{ bgcolor: 'primary.main' }}>
               <TableRow>
-                {['Title', 'Language', 'Publication', 'Unit Cost', 'Stock', ''].map((h) => (
-                  <TableCell key={h} sx={{ color: 'white', fontWeight: 700 }}>{h}</TableCell>
-                ))}
+                <SortableTableCell label="Title" field="title" sortField={sf1} sortDir={sd1} onSort={hs1} />
+              <SortableTableCell label="Language" field="language" sortField={sf1} sortDir={sd1} onSort={hs1} />
+              <SortableTableCell label="Publication" field="publication" sortField={sf1} sortDir={sd1} onSort={hs1} />
+              <SortableTableCell label="Unit Cost" field="unitCost" sortField={sf1} sortDir={sd1} onSort={hs1} />
+              <SortableTableCell label="Stock" field="currentStock" sortField={sf1} sortDir={sd1} onSort={hs1} />
+              <SortableTableCell label="" sortField={sf1} sortDir={sd1} onSort={hs1} />
               </TableRow>
             </TableHead>
             <TableBody>
-              {books.map((book) => (
+              {sortedBooks1.map((book) => (
                 <>
                   <TableRow key={book._id} hover>
                     <TableCell>{book.title}</TableCell>

@@ -7,6 +7,8 @@ import {
   FormControlLabel, Radio, RadioGroup, FormLabel, Avatar, Tooltip,
 } from '@mui/material';
 import { Add, Block, CheckCircle, Delete, PersonAdd, Star, StarBorder } from '@mui/icons-material';
+import { useSort } from '../../utils/useSort';
+import SortableTableCell from '../../components/common/SortableTableCell';
 import {
   getVolunteers, addVolunteer, suspendVolunteer, revokeSupension,
   removeVolunteer, toggleBookstallLead,
@@ -26,6 +28,7 @@ const AdminVolunteers = () => {
   const [loading, setLoading] = useState(false);
 
   const statusMap = ['active', 'suspended', 'removed'];
+  const { sorted, sortField, sortDir, handleSort } = useSort(volunteers);
 
   const fetchVols = async () => {
     const res = await getVolunteers({ status: statusMap[tab] });
@@ -101,13 +104,17 @@ const AdminVolunteers = () => {
         <Table>
           <TableHead sx={{ bgcolor: 'primary.main' }}>
             <TableRow>
-              {['', 'Name', 'Gmail', 'Contact', 'City', 'Joined', 'Actions'].map((h) => (
-                <TableCell key={h} sx={{ color: 'white', fontWeight: 700 }}>{h}</TableCell>
-              ))}
+              <SortableTableCell label="" sortField={sortField} sortDir={sortDir} onSort={handleSort} />
+              <SortableTableCell label="Name" field="name" sortField={sortField} sortDir={sortDir} onSort={handleSort} />
+              <SortableTableCell label="Gmail" field="gmailId" sortField={sortField} sortDir={sortDir} onSort={handleSort} />
+              <SortableTableCell label="Contact" field="contactNumber" sortField={sortField} sortDir={sortDir} onSort={handleSort} />
+              <SortableTableCell label="City" field="currentCity" sortField={sortField} sortDir={sortDir} onSort={handleSort} />
+              <SortableTableCell label="Joined" field="dateOfInclusion" sortField={sortField} sortDir={sortDir} onSort={handleSort} />
+              <SortableTableCell label="Actions" sortField={sortField} sortDir={sortDir} onSort={handleSort} />
             </TableRow>
           </TableHead>
           <TableBody>
-            {volunteers.map((vol) => (
+            {sorted.map((vol) => (
               <TableRow key={vol._id} hover>
                 <TableCell>
                   <Avatar src={vol.profilePhoto?.url} sx={{ width: 36, height: 36 }}>
@@ -167,7 +174,7 @@ const AdminVolunteers = () => {
                 </TableCell>
               </TableRow>
             ))}
-            {volunteers.length === 0 && (
+            {sorted.length === 0 && (
               <TableRow>
                 <TableCell colSpan={7} align="center">No volunteers in this category</TableCell>
               </TableRow>
