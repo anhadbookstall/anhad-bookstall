@@ -126,3 +126,5 @@ export const setMonthlyTheme = (data) => api.post('/themes', data);
 export const deleteTheme = (id) => api.delete(`/themes/${id}`);
 
 export const getBookInventoryHistory = (bookId) => api.get(`/inventory/book/${bookId}`);
+
+export const getVolunteerMatrix = (id) => api.get(`/volunteers/${id}/matrix`);

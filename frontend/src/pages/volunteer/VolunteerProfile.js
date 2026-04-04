@@ -5,7 +5,7 @@ import {
   Avatar, Autocomplete, Chip, Grid, CircularProgress,
 } from '@mui/material';
 import { CameraAlt, Save } from '@mui/icons-material';
-import { getVolunteer, updateVolunteer, uploadVolunteerPhoto, getBooks, getCities } from '../../services/api';
+import { getVolunteer, updateVolunteer, uploadVolunteerPhoto, getBooks, getCities, getVolunteerMatrix } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { toast } from 'react-toastify';
 
@@ -16,6 +16,7 @@ const VolunteerProfile = () => {
   const [cities, setCities] = useState([]);
   const [form, setForm] = useState({ profession: '', booksReadRecommendedByAP: '', willingCities: [], booksReadByAP: [] });
   const [loading, setLoading] = useState(false);
+  const [matrix, setMatrix] = useState(null);
 
   useEffect(() => {
     if (user?.id) {
@@ -30,6 +31,7 @@ const VolunteerProfile = () => {
       });
       getBooks().then((r) => setBooks(r.data));
       getCities().then((r) => setCities(r.data));
+      getVolunteerMatrix(user.id).then((r) => setMatrix(r.data)).catch(() => {});
     }
   }, [user]);
 
@@ -87,7 +89,7 @@ const VolunteerProfile = () => {
             </Box>
           </Box>
 
-          <Grid container spacing={2}>
+          <Grid container spacing={2} alignItems="stretch">
             <Grid item xs={12} md={6}>
               <TextField fullWidth label="Profession" value={form.profession}
                 onChange={(e) => setForm({ ...form, profession: e.target.value })} />
@@ -126,6 +128,37 @@ const VolunteerProfile = () => {
           </Button>
         </CardContent>
       </Card>
+    {/* Matrix Card */}
+      {matrix && (
+        <Card sx={{ mt: 3 }}>
+          <CardContent>
+            <Typography variant="h6" mb={2}>📊 My Performance Matrix</Typography>
+            <Grid container spacing={2}>
+              {[
+                { label: 'Total Bookstalls\nAttended', value: matrix.totalBookstallAttended, unit: '', color: 'primary.main' },
+                { label: 'Total Hours\nSpent', value: matrix.totalBookstallHours, unit: 'hrs', color: 'success.main' },
+                { label: 'Volunteer\nEfficiency', value: matrix.volunteerEfficiency, unit: 'books/hr', color: 'warning.main' },
+                { label: 'Total\nReflections', value: matrix.totalReflections, unit: '', color: 'info.main' },
+              ].map((stat) => (
+                <Grid item xs={6} md={3} key={stat.label}>
+                  <Box sx={{
+                    textAlign: 'center', p: 2, bgcolor: 'grey.50', borderRadius: 2,
+                    height: '100%', display: 'flex', flexDirection: 'column',
+                    alignItems: 'center', justifyContent: 'center', minHeight: 110,
+                  }}>
+                    <Typography variant="h5" fontWeight={700} color={stat.color} noWrap>
+                      {stat.value} <Typography component="span" variant="body2" color={stat.color} fontWeight={600}>{stat.unit}</Typography>
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'pre-line', lineHeight: 1.4, mt: 0.5 }}>
+                      {stat.label}
+                    </Typography>
+                  </Box>
+                </Grid>
+              ))}
+            </Grid>
+          </CardContent>
+        </Card>
+      )}
     </Box>
   );
 };

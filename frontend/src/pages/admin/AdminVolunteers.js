@@ -5,13 +5,14 @@ import {
   TableHead, TableRow, Typography, IconButton, Dialog, DialogTitle,
   DialogContent, DialogActions, TextField, Chip, Tabs, Tab,
   FormControlLabel, Radio, RadioGroup, FormLabel, Avatar, Tooltip,
+  Collapse, Grid, CircularProgress,
 } from '@mui/material';
-import { Add, Block, CheckCircle, Delete, PersonAdd, Star, StarBorder } from '@mui/icons-material';
+import { Add, Block, CheckCircle, Delete, PersonAdd, Star, StarBorder, ExpandMore, ExpandLess, QueryStats } from '@mui/icons-material';
 import { useSort } from '../../utils/useSort';
 import SortableTableCell from '../../components/common/SortableTableCell';
 import {
   getVolunteers, addVolunteer, suspendVolunteer, revokeSupension,
-  removeVolunteer, toggleBookstallLead,
+  removeVolunteer, toggleBookstallLead, getVolunteerMatrix,
 } from '../../services/api';
 import { toast } from 'react-toastify';
 
@@ -29,6 +30,25 @@ const AdminVolunteers = () => {
 
   const statusMap = ['active', 'suspended', 'removed'];
   const { sorted, sortField, sortDir, handleSort } = useSort(volunteers);
+  const [expandedVol, setExpandedVol] = useState(null);
+  const [matrixData, setMatrixData] = useState({});
+  const [matrixLoading, setMatrixLoading] = useState(null);
+
+  const handleExpandVol = async (volId) => {
+    if (expandedVol === volId) { setExpandedVol(null); return; }
+    setExpandedVol(volId);
+    if (!matrixData[volId]) {
+      setMatrixLoading(volId);
+      try {
+        const res = await getVolunteerMatrix(volId);
+        setMatrixData((prev) => ({ ...prev, [volId]: res.data }));
+      } catch {
+        toast.error('Error loading matrix');
+      } finally {
+        setMatrixLoading(null);
+      }
+    }
+  };
 
   const fetchVols = async () => {
     const res = await getVolunteers({ status: statusMap[tab] });
@@ -111,11 +131,13 @@ const AdminVolunteers = () => {
               <SortableTableCell label="City" field="currentCity" sortField={sortField} sortDir={sortDir} onSort={handleSort} />
               <SortableTableCell label="Joined" field="dateOfInclusion" sortField={sortField} sortDir={sortDir} onSort={handleSort} />
               <SortableTableCell label="Actions" sortField={sortField} sortDir={sortDir} onSort={handleSort} />
+              <TableCell sx={{ color: 'white', fontWeight: 700 }}>Matrix</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {sorted.map((vol) => (
-              <TableRow key={vol._id} hover>
+              <React.Fragment key={vol._id}>
+              <TableRow hover>
                 <TableCell>
                   <Avatar src={vol.profilePhoto?.url} sx={{ width: 36, height: 36 }}>
                     {vol.name[0]}
@@ -138,6 +160,13 @@ const AdminVolunteers = () => {
                 <TableCell>{vol.contactNumber}</TableCell>
                 <TableCell>{vol.currentCity}</TableCell>
                 <TableCell>{new Date(vol.dateOfInclusion).toLocaleDateString('en-IN')}</TableCell>
+                <TableCell>
+                  <Tooltip title={expandedVol === vol._id ? 'Hide Matrix' : 'View Matrix'}>
+                    <IconButton size="small" color="info" onClick={() => handleExpandVol(vol._id)}>
+                      {expandedVol === vol._id ? <ExpandLess /> : <QueryStats />}
+                    </IconButton>
+                  </Tooltip>
+                </TableCell>
                 <TableCell>
                   {/* Bookstall Lead toggle - only for active volunteers */}
                   {vol.status === 'active' && (
@@ -173,10 +202,44 @@ const AdminVolunteers = () => {
                   </Tooltip>
                 </TableCell>
               </TableRow>
+              {/* Matrix Row */}
+              <TableRow>
+                <TableCell colSpan={8} sx={{ p: 0, border: 0 }}>
+                  <Collapse in={expandedVol === vol._id}>
+                    <Box sx={{ p: 2, bgcolor: 'grey.50', borderBottom: '1px solid', borderColor: 'divider' }}>
+                      {matrixLoading === vol._id && (
+                        <CircularProgress size={24} />
+                      )}
+                      {matrixData[vol._id] && (
+                        <Grid container spacing={2}>
+                          {[
+                            { label: 'Total Bookstalls Attended', value: matrixData[vol._id].totalBookstallAttended, color: 'primary.main' },
+                            { label: 'Total Hours Spent', value: `${matrixData[vol._id].totalBookstallHours} hrs`, color: 'success.main' },
+                            { label: 'Volunteer Efficiency', value: `${matrixData[vol._id].volunteerEfficiency} books/hr`, color: 'warning.main' },
+                            { label: 'Total Reflections', value: matrixData[vol._id].totalReflections, color: 'info.main' },
+                          ].map((stat) => (
+                            <Grid item xs={6} md={3} key={stat.label}>
+                              <Box sx={{ textAlign: 'center', p: 1.5, bgcolor: 'white', borderRadius: 2, boxShadow: 1 }}>
+                                <Typography variant="h5" fontWeight={700} color={stat.color}>
+                                  {stat.value}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                  {stat.label}
+                                </Typography>
+                              </Box>
+                            </Grid>
+                          ))}
+                        </Grid>
+                      )}
+                    </Box>
+                  </Collapse>
+                </TableCell>
+              </TableRow>
+              </React.Fragment>
             ))}
             {sorted.length === 0 && (
               <TableRow>
-                <TableCell colSpan={7} align="center">No volunteers in this category</TableCell>
+                <TableCell colSpan={8} align="center">No volunteers in this category</TableCell>
               </TableRow>
             )}
           </TableBody>

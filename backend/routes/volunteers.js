@@ -3,12 +3,14 @@ const express = require('express');
 const router = express.Router();
 const {
   getVolunteers, getVolunteer, addVolunteer, updateVolunteer,
-  updateVolunteerPhoto, suspendVolunteer, revokeSupension, removeVolunteer, toggleBookstallLead,
+  updateVolunteerPhoto, suspendVolunteer, revokeSupension, removeVolunteer,
+  toggleBookstallLead, getVolunteerMatrix,
 } = require('../controllers/volunteerController');
 const { protect, adminOnly, authenticated } = require('../middleware/auth');
 const { uploadVolunteerPhoto } = require('../config/cloudinary');
 
 router.get('/', protect, authenticated, getVolunteers);
+router.get('/:id/matrix', protect, authenticated, getVolunteerMatrix);
 router.get('/:id', protect, authenticated, getVolunteer);
 router.post('/', protect, adminOnly, addVolunteer);
 router.put('/:id', protect, authenticated, updateVolunteer);
@@ -18,5 +20,6 @@ router.put('/:id/revoke', protect, adminOnly, revokeSupension);
 router.delete('/:id', protect, adminOnly, removeVolunteer);
 
 router.put('/:id/toggle-lead', protect, adminOnly, toggleBookstallLead);
+router.get('/:id/matrix', protect, authenticated, getVolunteerMatrix);
 
 module.exports = router;

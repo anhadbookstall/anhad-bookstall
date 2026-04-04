@@ -128,7 +128,98 @@ const toggleBookstallLead = async (req, res) => {
   });
 };
 
+// GET /api/volunteers/:id/matrix - Volunteer performance matrix
+const getVolunteerMatrix = async (req, res) => {
+  try {
+  const Bookstall = require('../models/Bookstall');
+  const ReflectionPost = require('../models/ReflectionPost');
+  const Sale = require('../models/Sale');
+
+  const volunteerId = req.params.id;
+
+  // Find all bookstalls where this volunteer was present (as lead or attendance)
+  const bookstalls = await Bookstall.find({
+    status: 'closed',
+    $or: [
+      { lead: volunteerId },
+      { 'attendance.volunteer': volunteerId },
+    ],
+  }).populate('attendance');
+
+  let totalBookstallHours = 0;
+  const sessionEfficiencies = [];
+
+  for (const bs of bookstalls) {
+    const endTime = bs.closedAt || new Date();
+    const totalHours = (endTime - bs.startedAt) / 3600000;
+
+    // Calculate this volunteer's presence hours in this session
+    let presenceMs = 0;
+
+    if (bs.lead?.toString() === volunteerId.toString()) {
+      // Lead was present full duration
+      presenceMs = endTime - bs.startedAt;
+    } else {
+      const att = bs.attendance.find(
+        (a) => a.volunteer?.toString() === volunteerId.toString()
+      );
+      if (att) {
+        for (const session of att.sessions) {
+          const exit = session.exitedAt || endTime;
+          presenceMs += exit - session.joinedAt;
+        }
+      }
+    }
+
+    const presenceHours = presenceMs / 3600000;
+    totalBookstallHours += presenceHours;
+
+    // Get total books sold in this bookstall session
+    const sales = await Sale.find({ bookstall: bs._id });
+    const totalBooksSold = sales.reduce((sum, s) => sum + s.quantity, 0);
+
+    // Calculate total presence hours of ALL volunteers in this session
+    let allPresenceMs = endTime - bs.startedAt; // lead always present full time
+    for (const att of bs.attendance) {
+      let attMs = 0;
+      for (const session of att.sessions) {
+        const exit = session.exitedAt || endTime;
+        attMs += exit - session.joinedAt;
+      }
+      allPresenceMs += attMs;
+    }
+    const allPresenceHours = allPresenceMs / 3600000;
+
+    // Session Volunteer Efficiency
+    const sessionEfficiency = allPresenceHours > 0
+      ? parseFloat((totalBooksSold / allPresenceHours).toFixed(2))
+      : 0;
+
+    sessionEfficiencies.push(sessionEfficiency);
+  }
+
+  // Individual Volunteer Efficiency = average of session efficiencies
+  const volunteerEfficiency = sessionEfficiencies.length > 0
+    ? parseFloat((sessionEfficiencies.reduce((a, b) => a + b, 0) / sessionEfficiencies.length).toFixed(2))
+    : 0;
+
+  // Total reflections posted
+  const totalReflections = await ReflectionPost.countDocuments({ volunteer: volunteerId });
+
+  res.json({
+    totalBookstallAttended: bookstalls.length,
+    totalBookstallHours: parseFloat(totalBookstallHours.toFixed(2)),
+    volunteerEfficiency,
+    totalReflections,
+  });
+  } catch (err) {
+    console.error('Matrix error:', err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
 module.exports = {
   getVolunteers, getVolunteer, addVolunteer, updateVolunteer,
-  updateVolunteerPhoto, suspendVolunteer, revokeSupension, removeVolunteer, toggleBookstallLead,
+  updateVolunteerPhoto, suspendVolunteer, revokeSupension, removeVolunteer,
+  toggleBookstallLead, getVolunteerMatrix,
 };
