@@ -15,6 +15,11 @@ const getSummary = async (req, res) => {
   if (to) dateFilter.$lte = new Date(to);
   const saleFilter = Object.keys(dateFilter).length ? { saleDate: dateFilter } : {};
 
+  // Current month date range
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+
   const [
     totalSales,
     totalRevenue,
@@ -23,6 +28,8 @@ const getSummary = async (req, res) => {
     lowStockBooks,
     totalExpenditure,
     totalInventoryCost,
+    thisMonthSales,
+    thisMonthBookstalls,
   ] = await Promise.all([
     Sale.aggregate([
       { $match: saleFilter },
@@ -39,6 +46,16 @@ const getSummary = async (req, res) => {
       { $unwind: '$bookData' },
       { $group: { _id: null, total: { $sum: { $multiply: ['$items.quantity', '$bookData.unitCost'] } } } },
     ]),
+    // This month's books sold
+    Sale.aggregate([
+      { $match: { saleDate: { $gte: monthStart, $lte: monthEnd } } },
+      { $group: { _id: null, count: { $sum: '$quantity' } } },
+    ]),
+    // This month's bookstalls conducted
+    Bookstall.countDocuments({
+      status: 'closed',
+      startedAt: { $gte: monthStart, $lte: monthEnd },
+    }),
   ]);
 
   res.json({
@@ -49,6 +66,8 @@ const getSummary = async (req, res) => {
     lowStockBooks,
     totalExpenditure: totalExpenditure[0]?.total || 0,
     totalInventoryCost: totalInventoryCost[0]?.total || 0,
+    totalBooksSoldThisMonth: thisMonthSales[0]?.count || 0,
+    totalBookstallsThisMonth: thisMonthBookstalls || 0,
   });
 };
 

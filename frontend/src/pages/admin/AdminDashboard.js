@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Grid, Card, CardContent, Typography, Box, CircularProgress,
   MenuItem, Select, FormControl, InputLabel, Button, TextField,
-  IconButton, Chip, Divider,
+  IconButton, Chip, Divider, Alert, LinearProgress,
 } from '@mui/material';
 import {
   MenuBook, People, Store, TrendingUp, Warning, AccountBalance, Inventory, Delete,
@@ -17,7 +17,7 @@ import { Bar, Line, Doughnut } from 'react-chartjs-2';
 import { toast } from 'react-toastify';
 import {
   getDashboardSummary, getBookSalesChart, getGenderAgeChart, getSalesTrend,
-  getAllThemes, setMonthlyTheme, deleteTheme,
+  getAllThemes, setMonthlyTheme, deleteTheme, checkMonthlyTarget,
 } from '../../services/api';
 
 // Register Chart.js components
@@ -51,7 +51,15 @@ const AdminDashboard = () => {
   const [trendDays, setTrendDays] = useState(30);
   const [loading, setLoading] = useState(true);
   const [themes, setThemes] = useState([]);
-  const [themeForm, setThemeForm] = useState({ year: new Date().getFullYear(), month: new Date().getMonth() + 1, theme: '' });
+  const [themeForm, setThemeForm] = useState({
+    year: new Date().getFullYear(),
+    month: new Date().getMonth() + 1,
+    theme: '',
+    targetBooksSold: '',
+    targetBookstalls: '',
+  });
+  const [targetNotSet, setTargetNotSet] = useState(false);
+  const [currentMonthData, setCurrentMonthData] = useState(null);
 
   const fetchData = async () => {
     setLoading(true);
@@ -77,18 +85,28 @@ const AdminDashboard = () => {
 
   useEffect(() => {
     getAllThemes().then((r) => setThemes(r.data)).catch(() => {});
+    checkMonthlyTarget().then((r) => {
+      setTargetNotSet(!r.data.isSet);
+      setCurrentMonthData(r.data.theme);
+    }).catch(() => {});
   }, []);
 
   const handleSetTheme = async () => {
-    if (!themeForm.theme.trim()) return;
+    if (!themeForm.theme.trim() && !themeForm.targetBooksSold && !themeForm.targetBookstalls) {
+      return toast.error('Please fill at least one field');
+    }
     try {
       await setMonthlyTheme(themeForm);
       const res = await getAllThemes();
       setThemes(res.data);
-      setThemeForm((f) => ({ ...f, theme: '' }));
-      toast.success('Theme set successfully!');
+      // Refresh target check
+      const targetRes = await checkMonthlyTarget();
+      setTargetNotSet(!targetRes.data.isSet);
+      setCurrentMonthData(targetRes.data.theme);
+      setThemeForm((f) => ({ ...f, theme: '', targetBooksSold: '', targetBookstalls: '' }));
+      toast.success('Saved successfully!');
     } catch {
-      toast.error('Error setting theme');
+      toast.error('Error saving');
     }
   };
 
@@ -142,10 +160,21 @@ const AdminDashboard = () => {
         </Grid>
       </Grid>
 
-      {/* Monthly Theme Management */}
-      <Card sx={{ mb: 3 }}>
+      {/* Target not set notification */}
+      {targetNotSet && (
+        <Alert severity="warning" sx={{ mb: 3 }} action={
+          <Button color="inherit" size="small" onClick={() => document.getElementById('monthly-target-section').scrollIntoView({ behavior: 'smooth' })}>
+            Set Now
+          </Button>
+        }>
+          ⚠️ Monthly target for {['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][new Date().getMonth()]} {new Date().getFullYear()} is not set yet!
+        </Alert>
+      )}
+
+      {/* Monthly Theme & Target Management */}
+      <Card sx={{ mb: 3 }} id="monthly-target-section">
         <CardContent>
-          <Typography variant="h6" mb={2}>🌿 Monthly Theme</Typography>
+          <Typography variant="h6" mb={2}>🌿 Monthly Theme & Target</Typography>
           <Grid container spacing={2} alignItems="center">
             <Grid item xs={6} md={2}>
               <TextField
@@ -167,29 +196,129 @@ const AdminDashboard = () => {
                 ))}
               </TextField>
             </Grid>
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12} md={4}>
               <TextField
                 fullWidth label="Theme (e.g. #ClimateAwarenessMonth)" size="small"
                 value={themeForm.theme}
                 onChange={(e) => setThemeForm({ ...themeForm, theme: e.target.value })}
               />
             </Grid>
+            <Grid item xs={6} md={2}>
+              <TextField
+                fullWidth label="Target Books" size="small" type="number"
+                value={themeForm.targetBooksSold}
+                onChange={(e) => setThemeForm({ ...themeForm, targetBooksSold: e.target.value })}
+                inputProps={{ min: 0 }}
+              />
+            </Grid>
+            <Grid item xs={6} md={2}>
+              <TextField
+                fullWidth label="Target Bookstalls" size="small" type="number"
+                value={themeForm.targetBookstalls}
+                onChange={(e) => setThemeForm({ ...themeForm, targetBookstalls: e.target.value })}
+                inputProps={{ min: 0 }}
+              />
+            </Grid>
             <Grid item xs={12} md={2}>
               <Button variant="contained" fullWidth onClick={handleSetTheme}>
-                Set Theme
+                Save
               </Button>
             </Grid>
           </Grid>
 
+          {/* Current Month Target Progress */}
+          {currentMonthData && (currentMonthData.targetBooksSold > 0 || currentMonthData.targetBookstalls > 0) && (() => {
+            const now = new Date();
+            const totalDays = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+            const daysPassed = now.getDate();
+            const daysRemaining = totalDays - daysPassed;
+            const daysPassedPct = Math.round((daysPassed / totalDays) * 100);
+            const daysRemainingPct = Math.round((daysRemaining / totalDays) * 100);
+
+            const booksSold = summary?.totalBooksSoldThisMonth || 0;
+            const bookstallsDone = summary?.totalBookstallsThisMonth || 0;
+
+            const booksTarget = currentMonthData.targetBooksSold || 0;
+            const bookstallsTarget = currentMonthData.targetBookstalls || 0;
+
+            const booksBehind = Math.max(0, booksTarget - booksSold);
+            const bookstallsBehind = Math.max(0, bookstallsTarget - bookstallsDone);
+
+            const booksPct = booksTarget > 0 ? Math.round((booksSold / booksTarget) * 100) : 0;
+            const bookstallsPct = bookstallsTarget > 0 ? Math.round((bookstallsDone / bookstallsTarget) * 100) : 0;
+
+            return (
+              <Box sx={{ mt: 2 }}>
+                <Divider sx={{ mb: 2 }} />
+                <Typography variant="subtitle1" fontWeight={600} mb={1}>
+                  📈 {['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][now.getMonth()]} {now.getFullYear()} — Target Progress
+                </Typography>
+                <Typography variant="caption" color="text.secondary" display="block" mb={2}>
+                  Day {daysPassed} of {totalDays} — {daysRemaining} days remaining ({daysRemainingPct}% of month left)
+                </Typography>
+
+                <Grid container spacing={2}>
+                  {booksTarget > 0 && (
+                    <Grid item xs={12} md={6}>
+                      <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                          <Typography variant="body2" fontWeight={600}>📚 Books Sold</Typography>
+                          <Typography variant="body2">{booksSold} / {booksTarget}</Typography>
+                        </Box>
+                        <LinearProgress
+                          variant="determinate" value={Math.min(booksPct, 100)}
+                          color={booksPct >= daysPassedPct ? 'success' : 'warning'}
+                          sx={{ height: 10, borderRadius: 5, mb: 1 }}
+                        />
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <Typography variant="caption" color={booksBehind > 0 ? 'error.main' : 'success.main'}>
+                            {booksBehind > 0 ? `${booksBehind} books behind target` : '✅ On track!'}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {booksPct}% achieved vs {daysPassedPct}% days passed
+                          </Typography>
+                        </Box>
+                      </Box>
+                    </Grid>
+                  )}
+
+                  {bookstallsTarget > 0 && (
+                    <Grid item xs={12} md={6}>
+                      <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                          <Typography variant="body2" fontWeight={600}>🏪 Bookstalls Conducted</Typography>
+                          <Typography variant="body2">{bookstallsDone} / {bookstallsTarget}</Typography>
+                        </Box>
+                        <LinearProgress
+                          variant="determinate" value={Math.min(bookstallsPct, 100)}
+                          color={bookstallsPct >= daysPassedPct ? 'success' : 'warning'}
+                          sx={{ height: 10, borderRadius: 5, mb: 1 }}
+                        />
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <Typography variant="caption" color={bookstallsBehind > 0 ? 'error.main' : 'success.main'}>
+                            {bookstallsBehind > 0 ? `${bookstallsBehind} bookstalls behind target` : '✅ On track!'}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {bookstallsPct}% achieved vs {daysPassedPct}% days passed
+                          </Typography>
+                        </Box>
+                      </Box>
+                    </Grid>
+                  )}
+                </Grid>
+              </Box>
+            );
+          })()}
+
           {themes.length > 0 && (
             <Box sx={{ mt: 2 }}>
               <Divider sx={{ mb: 1 }} />
-              <Typography variant="body2" color="text.secondary" mb={1}>Past & Current Themes:</Typography>
+              <Typography variant="body2" color="text.secondary" mb={1}>Past & Current Themes & Targets:</Typography>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
                 {themes.map((t) => (
                   <Chip
                     key={t._id}
-                    label={`${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][t.month - 1]} ${t.year}: ${t.theme}`}
+                    label={`${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][t.month - 1]} ${t.year}${t.theme ? ': ' + t.theme : ''}${t.targetBooksSold ? ' | 📚' + t.targetBooksSold : ''}${t.targetBookstalls ? ' | 🏪' + t.targetBookstalls : ''}`}
                     onDelete={() => handleDeleteTheme(t._id)}
                     color={t.month === new Date().getMonth() + 1 && t.year === new Date().getFullYear() ? 'success' : 'default'}
                     size="small"
