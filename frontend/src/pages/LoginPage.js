@@ -147,6 +147,9 @@ const LoginPage = () => {
                 Only pre-registered volunteers can access this app.
                 Contact admin if you cannot log in.
               </Typography>
+              <Typography variant="caption" sx={{ mt: 1, display: 'block' }}>
+                Want to volunteer? <a href="/apply" style={{ color: '#1a237e', fontWeight: 600 }}>Apply here →</a>
+              </Typography>
             </Box>
           )}
         </CardContent>

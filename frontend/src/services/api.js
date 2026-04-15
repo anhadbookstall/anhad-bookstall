@@ -130,3 +130,11 @@ export const getBookInventoryHistory = (bookId) => api.get(`/inventory/book/${bo
 export const getVolunteerMatrix = (id) => api.get(`/volunteers/${id}/matrix`);
 
 export const checkMonthlyTarget = () => api.get('/themes/check-target');
+// Gita Members
+export const applyGitaMembership = (data) => api.post('/gita-members/apply', data);
+export const getGitaMembers = (params) => api.get('/gita-members', { params });
+export const approveGitaMember = (id) => api.put(`/gita-members/${id}/approve`);
+export const rejectGitaMember = (id) => api.put(`/gita-members/${id}/reject`);
+export const promoteToVolunteer = (id) => api.put(`/gita-members/${id}/promote`);
+export const removeGitaMember = (id) => api.delete(`/gita-members/${id}`);
+export const getPendingGitaCount = () => api.get('/gita-members/pending-count');

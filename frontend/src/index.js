@@ -1,5 +1,6 @@
 // src/index.js - React entry point
 import React from 'react';
+import 'leaflet/dist/leaflet.css';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import * as serviceWorkerRegistration from './serviceWorkerRegistration';

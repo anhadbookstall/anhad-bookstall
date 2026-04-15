@@ -9,6 +9,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 
 // Pages
 import LoginPage from './pages/LoginPage';
+import HomePage from './pages/HomePage';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminBooks from './pages/admin/AdminBooks';
 import AdminVolunteers from './pages/admin/AdminVolunteers';
@@ -18,6 +19,7 @@ import AdminExpenditures from './pages/admin/AdminExpenditures';
 import AdminReports from './pages/admin/AdminReports';
 
 import VolunteerHome from './pages/volunteer/VolunteerHome';
+import ApplyPage from './pages/ApplyPage';
 import VolunteerProfile from './pages/volunteer/VolunteerProfile';
 import ActiveBookstall from './pages/volunteer/ActiveBookstall';
 import ReflectionsFeed from './pages/volunteer/ReflectionsFeed';
@@ -58,6 +60,7 @@ const ProtectedRoute = ({ children, adminOnly = false }) => {
   if (loading) return <LoadingScreen />;
   if (!user) return <Navigate to="/login" replace />;
   if (adminOnly && user.role !== 'admin') return <Navigate to="/volunteer" replace />;
+  if (!adminOnly && user.role === 'gitaMember') return children;
   return children;
 };
 
@@ -72,7 +75,8 @@ const PublicRoute = ({ children }) => {
 const AppRoutes = () => (
   <Routes>
     {/* Public */}
-    <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
+    <Route path="/login" element={<HomePage />} />
+    <Route path="/apply" element={<ApplyPage />} />
 
     {/* Admin Routes */}
     <Route path="/admin" element={<ProtectedRoute adminOnly><Layout /></ProtectedRoute>}>

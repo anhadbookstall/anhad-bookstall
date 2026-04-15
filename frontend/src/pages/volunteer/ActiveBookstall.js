@@ -461,8 +461,8 @@ const ActiveBookstall = () => {
         </CardContent>
       </Card>
 
-      {/* Book Sale Form */}
-      {isPresent && (
+      {/* Book Sale Form - hidden for Gita Members */}
+      {isPresent && user?.role !== 'gitaMember' && (
         <Accordion defaultExpanded>
           <AccordionSummary expandIcon={<ExpandMore />}>
             <Typography variant="h6">➕ Add Book Sale</Typography>

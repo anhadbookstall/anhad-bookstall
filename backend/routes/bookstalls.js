@@ -8,7 +8,7 @@ const {
 } = require('../controllers/bookstallController');
 const { protect, volunteerOnly, authenticated } = require('../middleware/auth');
 
-router.get('/', protect, authenticated, getBookstalls);
+router.get('/', getBookstalls); // Public - needed for homepage map
 router.get('/active', protect, volunteerOnly, getActiveBookstall);
 router.get('/:id', protect, authenticated, getBookstall);
 router.post('/start', protect, volunteerOnly, startBookstall);
