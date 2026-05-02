@@ -8,6 +8,11 @@ const reflectionPostSchema = new mongoose.Schema({
     publicId: String,
     type: { type: String, enum: ['image', 'video'] },
   },
+  // Multiple image attachments
+  images: [{
+    url: String,
+    publicId: String,
+  }],
   reactions: [{
     volunteer: { type: mongoose.Schema.Types.ObjectId, ref: 'Volunteer', required: true },
     emoji: { type: String, required: true, enum: ['👍', '👎', '❤️', '🙏', '💡', '😡', '😕', '🪔'] },

@@ -4,14 +4,17 @@ import {
   Box, Typography, Card, CardContent, Avatar, CircularProgress,
   Alert, TextField, InputAdornment, Button, IconButton, Chip,
   Collapse, Divider, Tooltip, Menu, MenuItem,
+  Dialog, DialogTitle, DialogContent, List, ListItem,
+  ListItemAvatar, ListItemText,
 } from '@mui/material';
 import {
   Search, AutoStories, Send, Image, VideoFile,
-  MoreVert, Delete, Close, AddPhotoAlternate,
+  MoreVert, Delete, Close, AddPhotoAlternate, Edit,
 } from '@mui/icons-material';
 import {
   getReflectionPosts, createReflectionPost, reactToPost,
   addComment, deleteComment, deleteReflectionPost, getAllReflections,
+  editReflectionPost, getPostReactions,
 } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { toast } from 'react-toastify';
@@ -25,6 +28,40 @@ const PostCard = ({ post, currentUserId, onUpdate, onDelete }) => {
   const [commentLoading, setCommentLoading] = useState(false);
   const [showAllReactions, setShowAllReactions] = useState(false);
   const [menuAnchor, setMenuAnchor] = useState(null);
+  const [editing, setEditing] = useState(false);
+  const [editText, setEditText] = useState(post.text || '');
+  const [editLoading, setEditLoading] = useState(false);
+  const [reactionsDialogOpen, setReactionsDialogOpen] = useState(false);
+  const [reactionsList, setReactionsList] = useState([]);
+  const [reactionsLoading, setReactionsLoading] = useState(false);
+
+  const handleEdit = async () => {
+    if (!editText.trim()) return;
+    setEditLoading(true);
+    try {
+      const res = await editReflectionPost(post._id, { text: editText });
+      onUpdate(res.data);
+      setEditing(false);
+      toast.success('Post updated');
+    } catch {
+      toast.error('Error updating post');
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  const handleShowReactions = async () => {
+    setReactionsDialogOpen(true);
+    setReactionsLoading(true);
+    try {
+      const res = await getPostReactions(post._id);
+      setReactionsList(res.data);
+    } catch {
+      toast.error('Error loading reactions');
+    } finally {
+      setReactionsLoading(false);
+    }
+  };
 
   const myReaction = post.reactions?.find((r) => r.volunteer?._id === currentUserId || r.volunteer === currentUserId);
 
@@ -66,7 +103,10 @@ const PostCard = ({ post, currentUserId, onUpdate, onDelete }) => {
     }
   };
 
-  const isMyPost = !post.isLegacy && (post.volunteer?._id === currentUserId || post.volunteer === currentUserId);
+  const isMyPost =
+  !post.isLegacy &&
+  (post.volunteer?._id === currentUserId ||
+   post.volunteer === currentUserId);
 
   return (
     <Card sx={{ mb: 2, borderRadius: 2 }}>
@@ -94,6 +134,9 @@ const PostCard = ({ post, currentUserId, onUpdate, onDelete }) => {
                 <MoreVert fontSize="small" />
               </IconButton>
               <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={() => setMenuAnchor(null)}>
+                <MenuItem onClick={() => { setEditing(true); setEditText(post.text || ''); setMenuAnchor(null); }}>
+                  <Edit fontSize="small" sx={{ mr: 1 }} /> Edit Post
+                </MenuItem>
                 <MenuItem onClick={() => { onDelete(post._id); setMenuAnchor(null); }} sx={{ color: 'error.main' }}>
                   <Delete fontSize="small" sx={{ mr: 1 }} /> Delete Post
                 </MenuItem>
@@ -102,29 +145,55 @@ const PostCard = ({ post, currentUserId, onUpdate, onDelete }) => {
           )}
         </Box>
 
-        {/* Post Text */}
-        {post.text && (
-          <Typography variant="body1" sx={{ mb: 1.5, whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>
-            {post.text}
-          </Typography>
+        {/* Post Text / Edit Mode */}
+        {editing ? (
+          <Box sx={{ mb: 1.5 }}>
+            <TextField
+              fullWidth multiline minRows={3}
+              value={editText}
+              onChange={(e) => setEditText(e.target.value)}
+              sx={{ mb: 1 }}
+            />
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Button size="small" variant="contained" onClick={handleEdit} disabled={editLoading}>
+                {editLoading ? <CircularProgress size={16} color="inherit" /> : 'Save'}
+              </Button>
+              <Button size="small" variant="outlined" onClick={() => setEditing(false)}>Cancel</Button>
+            </Box>
+          </Box>
+        ) : (
+          post.text && (
+            <Typography variant="body1" sx={{ mb: 1.5, whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>
+              {post.text}
+            </Typography>
+          )
         )}
 
-        {/* Media Attachment */}
+        {/* Single Media (video or legacy single image) */}
         {post.media?.url && (
           <Box sx={{ mb: 1.5, borderRadius: 1, overflow: 'hidden', maxHeight: 400 }}>
             {post.media.type === 'video' ? (
-              <video
-                src={post.media.url}
-                controls
-                style={{ width: '100%', maxHeight: 400, borderRadius: 8 }}
-              />
+              <video src={post.media.url} controls style={{ width: '100%', maxHeight: 400, borderRadius: 8 }} />
             ) : (
-              <img
-                src={post.media.url}
-                alt="attachment"
-                style={{ width: '100%', maxHeight: 400, objectFit: 'cover', borderRadius: 8 }}
-              />
+              <img src={post.media.url} alt="attachment" style={{ width: '100%', maxHeight: 400, objectFit: 'cover', borderRadius: 8 }} />
             )}
+          </Box>
+        )}
+
+        {/* Multiple Images Grid */}
+        {post.images?.length > 0 && (
+          <Box sx={{
+            display: 'grid',
+            gridTemplateColumns: post.images.length === 1 ? '1fr' : post.images.length === 2 ? '1fr 1fr' : 'repeat(3, 1fr)',
+            gap: 0.5, mb: 1.5, borderRadius: 2, overflow: 'hidden',
+          }}>
+            {post.images.map((img, i) => (
+              <Box key={i} component="a" href={img.url} target="_blank"
+                sx={{ display: 'block', aspectRatio: '1', overflow: 'hidden' }}>
+                <img src={img.url} alt={`attachment ${i + 1}`}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'pointer' }} />
+              </Box>
+            ))}
           </Box>
         )}
 
@@ -150,7 +219,7 @@ const PostCard = ({ post, currentUserId, onUpdate, onDelete }) => {
 
         <Divider sx={{ my: 1 }} />
 
-        {/* Reaction counts summary */}
+        {/* Reaction counts — click to see who reacted */}
         {!post.isLegacy && Object.keys(reactionCounts).length > 0 && (
           <Box sx={{ display: 'flex', gap: 0.5, mb: 1, flexWrap: 'wrap' }}>
             {Object.entries(reactionCounts).map(([emoji, count]) => (
@@ -160,12 +229,36 @@ const PostCard = ({ post, currentUserId, onUpdate, onDelete }) => {
                 size="small"
                 variant={myReaction?.emoji === emoji ? 'filled' : 'outlined'}
                 color={myReaction?.emoji === emoji ? 'primary' : 'default'}
-                onClick={() => handleReact(emoji)}
+                onClick={handleShowReactions}
                 sx={{ cursor: 'pointer', fontSize: '0.85rem' }}
               />
             ))}
           </Box>
         )}
+
+        {/* Reactions List Dialog */}
+        <Dialog open={reactionsDialogOpen} onClose={() => setReactionsDialogOpen(false)} maxWidth="xs" fullWidth>
+          <DialogTitle>Reactions</DialogTitle>
+          <DialogContent>
+            {reactionsLoading && <CircularProgress sx={{ display: 'block', mx: 'auto', my: 2 }} />}
+            <List dense>
+              {reactionsList.map((r) => (
+                <ListItem key={r._id}>
+                  <ListItemAvatar>
+                    <Avatar src={r.volunteer?.profilePhoto?.url} sx={{ width: 32, height: 32 }}>
+                      {r.volunteer?.name?.[0]}
+                    </Avatar>
+                  </ListItemAvatar>
+                  <ListItemText primary={r.volunteer?.name} />
+                  <Typography fontSize="1.2rem">{r.emoji}</Typography>
+                </ListItem>
+              ))}
+              {!reactionsLoading && reactionsList.length === 0 && (
+                <ListItem><ListItemText primary="No reactions yet" /></ListItem>
+              )}
+            </List>
+          </DialogContent>
+        </Dialog>
 
         {/* Reaction buttons + comments toggle */}
         {!post.isLegacy && (
@@ -244,37 +337,37 @@ const PostCard = ({ post, currentUserId, onUpdate, onDelete }) => {
 // ---- Create Post Box ----
 const CreatePost = ({ currentUser, onPostCreated }) => {
   const [text, setText] = useState('');
-  const [media, setMedia] = useState(null);
-  const [mediaPreview, setMediaPreview] = useState(null);
+  const [images, setImages] = useState([]); // multiple images
+  const [imagePreviews, setImagePreviews] = useState([]);
   const [loading, setLoading] = useState(false);
   const fileRef = useRef();
 
   const handleMediaChange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    setMedia(file);
-    const url = URL.createObjectURL(file);
-    setMediaPreview({ url, type: file.type.startsWith('video/') ? 'video' : 'image' });
+    const files = Array.from(e.target.files);
+    if (!files.length) return;
+    setImages((prev) => [...prev, ...files].slice(0, 10)); // max 10
+    const previews = files.map((f) => ({ url: URL.createObjectURL(f), name: f.name }));
+    setImagePreviews((prev) => [...prev, ...previews].slice(0, 10));
   };
 
-  const removeMedia = () => {
-    setMedia(null);
-    setMediaPreview(null);
-    if (fileRef.current) fileRef.current.value = '';
+  const removeImage = (i) => {
+    setImages((prev) => prev.filter((_, idx) => idx !== i));
+    setImagePreviews((prev) => prev.filter((_, idx) => idx !== i));
   };
 
   const handlePost = async () => {
-    if (!text.trim() && !media) return toast.error('Write something or attach a photo/video');
+    console.log("POST CLICKED");
+    if (!text.trim() && images.length === 0) return toast.error('Write something or attach photos');
     setLoading(true);
     try {
       const fd = new FormData();
       if (text.trim()) fd.append('text', text.trim());
-      if (media) fd.append('media', media);
+      images.forEach((img) => fd.append('media', img));
       const res = await createReflectionPost(fd);
       onPostCreated(res.data);
       setText('');
-      setMedia(null);
-      setMediaPreview(null);
+      setImages([]);
+      setImagePreviews([]);
       if (fileRef.current) fileRef.current.value = '';
       toast.success('Posted! ✅');
     } catch (err) {
@@ -301,55 +394,54 @@ const CreatePost = ({ currentUser, onPostCreated }) => {
               sx={{ mb: 1 }}
             />
 
-            {/* Media preview */}
-            {mediaPreview && (
-              <Box sx={{ position: 'relative', display: 'inline-block', mb: 1 }}>
-                {mediaPreview.type === 'video' ? (
-                  <video src={mediaPreview.url} style={{ maxHeight: 200, borderRadius: 8 }} controls />
-                ) : (
-                  <img src={mediaPreview.url} alt="preview" style={{ maxHeight: 200, borderRadius: 8 }} />
-                )}
-                <IconButton
-                  size="small"
-                  onClick={removeMedia}
-                  sx={{
-                    position: 'absolute', top: 4, right: 4,
-                    bgcolor: 'rgba(0,0,0,0.6)', color: 'white',
-                    '&:hover': { bgcolor: 'rgba(0,0,0,0.8)' },
-                  }}
-                >
-                  <Close fontSize="small" />
-                </IconButton>
+            {/* Image Previews */}
+            {imagePreviews.length > 0 && (
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 1 }}>
+                {imagePreviews.map((p, i) => (
+                  <Box key={i} sx={{ position: 'relative', display: 'inline-block' }}>
+                    <img src={p.url} alt="preview"
+                      style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8 }} />
+                    <IconButton size="small" onClick={() => removeImage(i)}
+                      sx={{ position: 'absolute', top: -6, right: -6, bgcolor: 'error.main', color: 'white',
+                        width: 20, height: 20, '&:hover': { bgcolor: 'error.dark' } }}>
+                      <Close sx={{ fontSize: 12 }} />
+                    </IconButton>
+                  </Box>
+                ))}
               </Box>
             )}
 
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Box sx={{ display: 'flex', gap: 1 }}>
-                <Tooltip title="Attach Photo">
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Tooltip title="Attach Photos (up to 10)">
                   <IconButton component="label" size="small" color="primary">
                     <AddPhotoAlternate />
                     <input
                       ref={fileRef}
                       type="file"
-                      accept="image/*,video/*"
+                      accept="image/*"
                       hidden
+                      multiple
                       onChange={handleMediaChange}
                     />
                   </IconButton>
                 </Tooltip>
-                {media && (
-                  <Chip
-                    size="small"
-                    icon={media.type?.startsWith('video/') ? <VideoFile /> : <Image />}
-                    label={media.name?.length > 20 ? media.name.substring(0, 20) + '...' : media.name}
-                    onDelete={removeMedia}
-                  />
+                {images.length > 0 && (
+                  <Typography variant="caption" color="text.secondary">
+                    {images.length} photo{images.length > 1 ? 's' : ''} selected
+                  </Typography>
                 )}
               </Box>
               <Button
-                variant="contained" size="small"
-                onClick={handlePost} disabled={loading || (!text.trim() && !media)}
-                startIcon={loading ? <CircularProgress size={16} color="inherit" /> : <Send />}
+                type="button"
+                variant="contained"
+                size="small"
+                sx={{ zIndex: 10 }} // 👈 important
+                onClick={(e) => {
+                  e.stopPropagation();   // 👈 prevent parent blocking
+                  console.log("CLICK WORKING");
+                  handlePost();
+                }}
               >
                 Post
               </Button>
@@ -424,6 +516,16 @@ const ReflectionsFeed = () => {
 
   return (
     <Box maxWidth={680} mx="auto">
+      {/* Search ABOVE header */}
+      <TextField
+        fullWidth placeholder="Search posts..."
+        value={search} onChange={(e) => setSearch(e.target.value)}
+        size="small" sx={{ mb: 2 }}
+        InputProps={{
+          startAdornment: <InputAdornment position="start"><Search /></InputAdornment>,
+        }}
+      />
+
       <Typography variant="h4" mb={1}>
         <AutoStories sx={{ mr: 1, verticalAlign: 'middle' }} />
         Reflections
@@ -435,16 +537,6 @@ const ReflectionsFeed = () => {
       {/* Create Post */}
       <CreatePost currentUser={user} onPostCreated={handlePostCreated} />
 
-      {/* Search */}
-      <TextField
-        fullWidth placeholder="Search posts..."
-        value={search} onChange={(e) => setSearch(e.target.value)}
-        size="small" sx={{ mb: 3 }}
-        InputProps={{
-          startAdornment: <InputAdornment position="start"><Search /></InputAdornment>,
-        }}
-      />
-
       {filtered.length === 0 && (
         <Alert severity="info">
           {search ? 'No posts match your search.' : 'No reflections yet. Be the first to post!'}
@@ -455,7 +547,7 @@ const ReflectionsFeed = () => {
         <PostCard
           key={post._id}
           post={post}
-          currentUserId={user?.id}
+          currentUserId={user?._id}
           onUpdate={handlePostUpdated}
           onDelete={handlePostDeleted}
         />

@@ -14,11 +14,16 @@ const getPosts = async (req, res) => {
 // POST /api/reflection-posts - Create a new post
 const createPost = async (req, res) => {
   const { text } = req.body;
+  console.log('createPost called');
+  console.log('req.body:', req.body);
+  console.log('req.file:', req.file);
+  console.log('req.files:', req.files);
 
-  if (!text?.trim() && !req.file) {
+  if (!text?.trim() && !req.files?.length && !req.file) {
     return res.status(400).json({ message: 'Post must have text or an attachment' });
   }
 
+  // Single file (video) - legacy
   let media;
   if (req.file) {
     const isVideo = req.file.mimetype?.startsWith('video/');
@@ -29,10 +34,19 @@ const createPost = async (req, res) => {
     };
   }
 
+  // Multiple images
+  let images = [];
+  if (req.files && req.files.length > 0) {
+    images = req.files.map((f) => ({ url: f.path, publicId: f.filename }));
+  }
+
+  console.log('images array:', JSON.stringify(images));
+
   const post = await ReflectionPost.create({
     volunteer: req.user.id,
     text: text?.trim(),
     media,
+    images,
     bookstallContext: req.body.bookstallId ? {
       bookstallId: req.body.bookstallId,
       city: req.body.bookstallCity,
@@ -124,4 +138,28 @@ const deletePost = async (req, res) => {
   res.json({ message: 'Post deleted' });
 };
 
-module.exports = { getPosts, createPost, reactToPost, addComment, deleteComment, deletePost };
+// PUT /api/reflection-posts/:id - Edit own post text
+const editPost = async (req, res) => {
+  const { text } = req.body;
+  const post = await ReflectionPost.findById(req.params.id);
+  if (!post) return res.status(404).json({ message: 'Post not found' });
+  if (post.volunteer.toString() !== req.user.id) {
+    return res.status(403).json({ message: 'Cannot edit another volunteer\'s post' });
+  }
+  post.text = text?.trim() || post.text;
+  await post.save();
+  await post.populate('volunteer', 'name profilePhoto');
+  await post.populate('comments.volunteer', 'name profilePhoto');
+  await post.populate('reactions.volunteer', 'name');
+  res.json(post);
+};
+
+// GET /api/reflection-posts/:id/reactions - Get list of who reacted
+const getReactions = async (req, res) => {
+  const post = await ReflectionPost.findById(req.params.id)
+    .populate('reactions.volunteer', 'name profilePhoto');
+  if (!post) return res.status(404).json({ message: 'Post not found' });
+  res.json(post.reactions);
+};
+
+module.exports = { getPosts, createPost, reactToPost, addComment, deleteComment, deletePost, editPost, getReactions };

@@ -138,3 +138,9 @@ export const rejectGitaMember = (id) => api.put(`/gita-members/${id}/reject`);
 export const promoteToVolunteer = (id) => api.put(`/gita-members/${id}/promote`);
 export const removeGitaMember = (id) => api.delete(`/gita-members/${id}`);
 export const getPendingGitaCount = () => api.get('/gita-members/pending-count');
+
+export const editReflectionPost = (id, data) =>
+  api.put(`/reflection-posts/${id}`, data);
+
+export const getPostReactions = (id) =>
+  api.get(`/reflection-posts/${id}/reactions`);
