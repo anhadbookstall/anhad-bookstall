@@ -547,7 +547,7 @@ const ReflectionsFeed = () => {
         <PostCard
           key={post._id}
           post={post}
-          currentUserId={user?._id}
+          currentUserId={user?.id || user?._id}
           onUpdate={handlePostUpdated}
           onDelete={handlePostDeleted}
         />
