@@ -144,3 +144,5 @@ export const editReflectionPost = (id, data) =>
 
 export const getPostReactions = (id) =>
   api.get(`/reflection-posts/${id}/reactions`);
+
+export const joinBookstall = (id) => api.put(`/bookstalls/${id}/join`);

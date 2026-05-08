@@ -13,7 +13,7 @@ import {
 } from '@mui/icons-material';
 import {
   getActiveBookstall, startBookstall, closeBookstall, exitBookstall,
-  rejoinBookstall, addSale, getBooks, getCities,
+  rejoinBookstall, joinBookstall, addSale, getBooks, getCities,
   getVolunteers, getBookstallSummary, createReflectionPost,
 } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
@@ -137,7 +137,8 @@ const SummaryDialog = ({ bookstallId, open, onClose }) => {
 const ActiveBookstall = () => {
   const { user } = useAuth();
 
-  const [bookstall, setBookstall] = useState(null);
+  const [bookstalls, setBookstalls] = useState([]); // all ongoing bookstalls
+  const [myBookstall, setMyBookstall] = useState(null); // bookstall where I am present
   const [loading, setLoading] = useState(true);
   const [books, setBooks] = useState([]);
   const [cities, setCities] = useState([]);
@@ -156,12 +157,13 @@ const ActiveBookstall = () => {
   const [salePhoto, setSalePhoto] = useState(null);
   const [saleLoading, setSaleLoading] = useState(false);
 
+  const bookstall = myBookstall; // alias for backward compatibility
+
   const isActiveLead = bookstall && (
     isSameId(bookstall.lead?._id, user?.id) ||
     isSameId(bookstall.lead, user?.id)
   );
 
-  // Fix 1: Only check attendance array for non-lead presence (lead shown separately)
   const myAttendance = bookstall?.attendance?.find((a) =>
     isSameId(a.volunteer?._id || a.volunteer, user?.id)
   );
@@ -185,9 +187,17 @@ const ActiveBookstall = () => {
   const fetchBookstall = async () => {
     try {
       const res = await getActiveBookstall();
-      setBookstall(res.data);
+      const all = res.data || [];
+      setBookstalls(all);
+      // Find bookstall where I am lead or present
+      const mine = all.find((bs) =>
+        isSameId(bs.lead?._id || bs.lead, user?.id) ||
+        bs.attendance?.some((a) => isSameId(a.volunteer?._id || a.volunteer, user?.id) && a.isPresent)
+      );
+      setMyBookstall(mine || null);
     } catch {
-      setBookstall(null);
+      setBookstalls([]);
+      setMyBookstall(null);
     } finally {
       setLoading(false);
     }
@@ -207,7 +217,8 @@ const ActiveBookstall = () => {
         );
       });
       const res = await startBookstall({ ...startForm, coordinates: coords });
-      setBookstall(res.data);
+      setMyBookstall(res.data);
+      setBookstalls((prev) => [...prev, res.data]);
       setShowStartForm(false);
       toast.success('Bookstall started! 🎉');
     } catch (err) {
@@ -258,7 +269,8 @@ const ActiveBookstall = () => {
       toast.success('Bookstall closed successfully');
       setSummaryBookstallId(bookstall._id);
       setSummaryOpen(true);
-      setBookstall(null);
+      setMyBookstall(null);
+      setBookstalls((prev) => prev.filter((bs) => bs._id !== bookstall._id));
       // Reset start form and reload volunteers fresh (excluding lead)
       setStartForm({ cityId: '', location: '', presentVolunteerIds: [], specialOccasion: '' });
       getVolunteers({ status: 'active' }).then((r) => {
@@ -300,7 +312,18 @@ const ActiveBookstall = () => {
     );
   }
 
-  // ---- NO ACTIVE BOOKSTALL ----
+  // Handle joining a bookstall
+  const handleJoin = async (bookstallId) => {
+    try {
+      const res = await joinBookstall(bookstallId);
+      setMyBookstall(res.data);
+      toast.success('Joined bookstall! ✅');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Error joining bookstall');
+    }
+  };
+
+  // ---- NO ACTIVE BOOKSTALL (not in any) ----
   if (!bookstall) {
     return (
       <Box>
@@ -310,16 +333,49 @@ const ActiveBookstall = () => {
           onClose={() => setSummaryOpen(false)}
         />
 
-        <Alert severity="info" icon={<Store />} sx={{ mb: 4, fontSize: '1rem' }}>
-          There is no active bookstall at present.
-        </Alert>
+        {/* Show ongoing bookstalls to join */}
+        {bookstalls.length > 0 && (
+          <Box mb={4}>
+            <Typography variant="h5" mb={2}>🏪 Ongoing Bookstalls</Typography>
+            <Grid container spacing={2}>
+              {bookstalls.map((bs) => (
+                <Grid item xs={12} md={6} key={bs._id}>
+                  <Card sx={{ border: '1px solid', borderColor: 'success.light' }}>
+                    <CardContent>
+                      <Typography variant="h6">{bs.city?.name}</Typography>
+                      <Typography variant="body2">📍 {bs.location}</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        👤 Lead: {bs.lead?.name}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        ⏱ Started: {new Date(bs.startedAt).toLocaleTimeString('en-IN')}
+                      </Typography>
+                      <Button
+                        variant="contained" color="success" size="small"
+                        sx={{ mt: 1 }} onClick={() => handleJoin(bs._id)}
+                      >
+                        Join This Bookstall
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
+          </Box>
+        )}
+
+        {bookstalls.length === 0 && (
+          <Alert severity="info" icon={<Store />} sx={{ mb: 4, fontSize: '1rem' }}>
+            There is no active bookstall at present.
+          </Alert>
+        )}
 
         {isLead && !showStartForm && (
           <Button
             variant="contained" color="success" size="large"
             startIcon={<PlayArrow />} onClick={() => setShowStartForm(true)} sx={{ mb: 4 }}
           >
-            Start a Bookstall
+            Start a New Bookstall
           </Button>
         )}
 

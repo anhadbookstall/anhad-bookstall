@@ -17,13 +17,14 @@ const getBookstalls = async (req, res) => {
   res.json(bookstalls);
 };
 
-// GET /api/bookstalls/active - Currently ongoing bookstall
+// GET /api/bookstalls/active - All currently ongoing bookstalls
 const getActiveBookstall = async (req, res) => {
-  const bookstall = await Bookstall.findOne({ status: 'ongoing' })
+  const bookstalls = await Bookstall.find({ status: 'ongoing' })
     .populate('city', 'name')
     .populate('lead', 'name profilePhoto')
-    .populate('attendance.volunteer', 'name profilePhoto');
-  res.json(bookstall || null);
+    .populate('attendance.volunteer', 'name profilePhoto')
+    .sort('-startedAt');
+  res.json(bookstalls);
 };
 
 // GET /api/bookstalls/:id - Single bookstall details
@@ -140,6 +141,37 @@ const exitBookstall = async (req, res) => {
 
   await bs.save();
   res.json({ message: 'Exited bookstall' });
+};
+
+// PUT /api/bookstalls/:id/join - Volunteer joins an ongoing bookstall
+const joinBookstall = async (req, res) => {
+  const bs = await Bookstall.findById(req.params.id);
+  if (!bs) return res.status(404).json({ message: 'Bookstall not found' });
+  if (bs.status !== 'ongoing') return res.status(400).json({ message: 'Bookstall is not ongoing' });
+
+  // Check if already in attendance
+  const existing = bs.attendance.find((a) => a.volunteer.toString() === req.user.id);
+  if (existing) {
+    // Already in attendance - just mark present
+    existing.isPresent = true;
+    existing.sessions.push({ joinedAt: new Date() });
+  } else {
+    // New attendee
+    bs.attendance.push({
+      volunteer: req.user.id,
+      joinedAt: new Date(),
+      isPresent: true,
+      sessions: [{ joinedAt: new Date() }],
+    });
+  }
+
+  await bs.save();
+  await bs.populate([
+    { path: 'city', select: 'name' },
+    { path: 'lead', select: 'name profilePhoto' },
+    { path: 'attendance.volunteer', select: 'name profilePhoto' },
+  ]);
+  res.json(bs);
 };
 
 // PUT /api/bookstalls/:id/rejoin - Volunteer rejoins after exit
