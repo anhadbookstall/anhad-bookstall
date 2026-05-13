@@ -3,6 +3,7 @@ const Sale = require('../models/Sale');
 const Book = require('../models/Book');
 const Bookstall = require('../models/Bookstall');
 const Notification = require('../models/Notification');
+const LeadInventory = require('../models/LeadInventory');
 
 // POST /api/sales - Record a book sale
 const addSale = async (req, res) => {
@@ -32,10 +33,25 @@ const addSale = async (req, res) => {
   // Check stock availability
   const book = await Book.findById(bookId);
   if (!book) return res.status(404).json({ message: 'Book not found' });
-  if (book.currentStock < quantity) {
-    return res.status(400).json({
-      message: `Insufficient stock. Only ${book.currentStock} copies available.`,
-    });
+
+  // Check if the seller is the bookstall lead
+  const isLead = bookstall.lead.toString() === req.user.id;
+
+  if (isLead) {
+    // Lead sells from their personal stock
+    const leadItem = await LeadInventory.findOne({ lead: req.user.id, book: bookId });
+    if (!leadItem || leadItem.quantity < quantity) {
+      return res.status(400).json({
+        message: `Insufficient personal stock. You have ${leadItem?.quantity || 0} copies available.`,
+      });
+    }
+  } else {
+    // Non-lead volunteer sells from buffer stock
+    if (book.currentStock < quantity) {
+      return res.status(400).json({
+        message: `Insufficient stock. Only ${book.currentStock} copies available.`,
+      });
+    }
   }
 
   // Build sale object
@@ -49,6 +65,7 @@ const addSale = async (req, res) => {
     ageCategory,
     knowsAcharyaPrashant,
     joinedGitaCommunity: knowsAcharyaPrashant ? joinedGitaCommunity : undefined,
+    soldByLead: isLead, // flag to skip post-save hook stock decrement
   };
 
   // If photo was uploaded (via multer + cloudinary)
@@ -61,11 +78,26 @@ const addSale = async (req, res) => {
   }
 
   const sale = await Sale.create(saleData);
-  // Sale.post('save') hook auto-decrements stock
+
+  if (isLead) {
+    // Reduce lead's personal stock
+    await LeadInventory.findOneAndUpdate(
+      { lead: req.user.id, book: bookId },
+      { $inc: { quantity: -parseInt(quantity) } }
+    );
+    // Reduce overall stock manually (hook is skipped for lead sales)
+    await Book.findByIdAndUpdate(bookId, { $inc: { currentStock: -parseInt(quantity) } });
+  }
+  // For non-lead volunteers, Sale.post('save') hook handles Book.currentStock decrement
 
   // Check if stock dropped below 3 and notify admin
   const updatedBook = await Book.findById(bookId);
-  if (updatedBook.currentStock < 3) {
+  const totalLeadStock = await LeadInventory.aggregate([
+    { $match: { book: book._id } },
+    { $group: { _id: null, total: { $sum: '$quantity' } } },
+  ]);
+  const overallStock = updatedBook.currentStock + (totalLeadStock[0]?.total || 0);
+  if (overallStock < 3) {
     await Notification.create({
       isForAdmin: true,
       title: 'Low Stock Alert',

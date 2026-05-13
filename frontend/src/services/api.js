@@ -146,3 +146,10 @@ export const getPostReactions = (id) =>
   api.get(`/reflection-posts/${id}/reactions`);
 
 export const joinBookstall = (id) => api.put(`/bookstalls/${id}/join`);
+
+// Lead Inventory
+export const getMyLeadInventory = () => api.get('/lead-inventory/my');
+export const getLeadInventory = (leadId) => api.get(`/lead-inventory/lead/${leadId}`);
+export const getBookLeadDistribution = (bookId) => api.get(`/lead-inventory/book/${bookId}`);
+export const allocateToLead = (data) => api.post('/lead-inventory/allocate', data);
+export const deallocateFromLead = (data) => api.post('/lead-inventory/deallocate', data);

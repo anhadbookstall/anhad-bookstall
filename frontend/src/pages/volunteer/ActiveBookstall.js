@@ -14,7 +14,7 @@ import {
 import {
   getActiveBookstall, startBookstall, closeBookstall, exitBookstall,
   rejoinBookstall, joinBookstall, addSale, getBooks, getCities,
-  getVolunteers, getBookstallSummary, createReflectionPost,
+  getVolunteers, getBookstallSummary, createReflectionPost, getMyLeadInventory,
 } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { getMe } from '../../services/api';
@@ -156,6 +156,7 @@ const ActiveBookstall = () => {
   const [saleForm, setSaleForm] = useState(emptySaleForm);
   const [salePhoto, setSalePhoto] = useState(null);
   const [saleLoading, setSaleLoading] = useState(false);
+  const [leadInventory, setLeadInventory] = useState([]); // lead's personal stock
 
   const bookstall = myBookstall; // alias for backward compatibility
 
@@ -181,7 +182,13 @@ const ActiveBookstall = () => {
       setVolunteers(r.data.filter((v) => !isSameId(v._id, user?.id)));
     }).catch(() => {});
     // Fetch fresh user data to get latest isBookstallLead value
-    getMe().then((r) => setIsLead(r.data.isBookstallLead || false)).catch(() => {});
+    getMe().then((r) => {
+      setIsLead(r.data.isBookstallLead || false);
+      // If lead, fetch their personal inventory
+      if (r.data.isBookstallLead) {
+        getMyLeadInventory().then((inv) => setLeadInventory(inv.data)).catch(() => {});
+      }
+    }).catch(() => {});
   }, []);
 
   const fetchBookstall = async () => {
@@ -253,7 +260,11 @@ const ActiveBookstall = () => {
       toast.success('Sale recorded! ✅');
       setSaleForm(emptySaleForm);
       setSalePhoto(null);
-      fetchBooks(); // Fix 2: Immediately refresh book stock after sale
+      fetchBooks();
+      // Refresh lead inventory after sale
+      if (isActiveLead) {
+        getMyLeadInventory().then((inv) => setLeadInventory(inv.data)).catch(() => {});
+      }
     } catch (err) {
       toast.error(err.response?.data?.message || 'Error recording sale');
     } finally {
@@ -528,11 +539,27 @@ const ActiveBookstall = () => {
               <Grid item xs={12} md={6}>
                 {/* Fix 2: Books list is refreshed after each sale so stock is up to date */}
                 <Autocomplete
-                  options={books.filter((b) => b.currentStock > 0)} // Only show books with stock > 0
-                  getOptionLabel={(b) => `${b.title} (Stock: ${b.currentStock})`}
-                  value={books.find((b) => b._id === saleForm.bookId) || null}
+                  options={
+                    isActiveLead
+                      ? leadInventory.filter((item) => item.quantity > 0).map((item) => ({
+                          _id: item.book._id,
+                          title: item.book.title,
+                          unitCost: item.book.unitCost,
+                          currentStock: item.quantity, // show lead's personal stock
+                        }))
+                      : books.filter((b) => b.currentStock > 0)
+                  }
+                  getOptionLabel={(b) => `${b.title} (My Stock: ${b.currentStock})`}
+                  value={
+                    isActiveLead
+                      ? leadInventory.filter((i) => i.quantity > 0).map((i) => ({
+                          _id: i.book._id, title: i.book.title,
+                          unitCost: i.book.unitCost, currentStock: i.quantity,
+                        })).find((b) => b._id === saleForm.bookId) || null
+                      : books.find((b) => b._id === saleForm.bookId) || null
+                  }
                   onChange={(_, val) => setSaleForm({ ...saleForm, bookId: val?._id || '', soldPrice: val?.unitCost || '' })}
-                  noOptionsText="No books available in stock"
+                  noOptionsText={isActiveLead ? 'No books in your personal inventory' : 'No books available in stock'}
                   renderInput={(params) => <TextField {...params} label="Book Title *" />}
                 />
               </Grid>

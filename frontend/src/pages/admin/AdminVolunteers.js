@@ -7,7 +7,8 @@ import {
   FormControlLabel, Radio, RadioGroup, FormLabel, Avatar, Tooltip,
   Collapse, Grid, CircularProgress, Badge,
 } from '@mui/material';
-import { Add, Block, CheckCircle, Delete, PersonAdd, Star, StarBorder, ExpandMore, ExpandLess, QueryStats, ArrowUpward } from '@mui/icons-material';
+import { Add, Block, CheckCircle, Delete, PersonAdd, Star, StarBorder, ExpandMore, ExpandLess, QueryStats, ArrowUpward, MenuBook, Inventory } from '@mui/icons-material';
+import { MenuItem, Autocomplete, Table as MuiTable, LinearProgress } from '@mui/material';
 import { useSort } from '../../utils/useSort';
 import SortableTableCell from '../../components/common/SortableTableCell';
 import {
@@ -15,6 +16,7 @@ import {
   removeVolunteer, toggleBookstallLead, getVolunteerMatrix,
   getGitaMembers, approveGitaMember, rejectGitaMember,
   promoteToVolunteer, removeGitaMember, getPendingGitaCount,
+  getLeadInventory, getBooks, allocateToLead, deallocateFromLead,
 } from '../../services/api';
 import { toast } from 'react-toastify';
 
@@ -35,6 +37,14 @@ const AdminVolunteers = () => {
   const [loading, setLoading] = useState(false);
 
   const statusMap = ['active', 'suspended', 'removed'];
+  const [leadInvOpen, setLeadInvOpen] = useState(false);
+  const [selectedLead, setSelectedLead] = useState(null);
+  const [leadInvData, setLeadInvData] = useState([]);
+  const [leadInvLoading, setLeadInvLoading] = useState(false);
+  const [allBooks, setAllBooks] = useState([]);
+  const [allocForm, setAllocForm] = useState({ bookId: '', quantity: 1 });
+  const [allocLoading, setAllocLoading] = useState(false);
+  const [allocMode, setAllocMode] = useState('allocate'); // 'allocate' or 'deallocate'
   const gitaStatusMap = ['pending', 'active', 'rejected'];
   const { sorted, sortField, sortDir, handleSort } = useSort(volunteers);
 
@@ -47,6 +57,57 @@ const AdminVolunteers = () => {
     const res = await getPendingGitaCount();
     setPendingCount(res.data.count);
   };
+  const openLeadInventory = async (vol) => {
+    setSelectedLead(vol);
+    setLeadInvOpen(true);
+    setLeadInvLoading(true);
+    setAllocForm({ bookId: '', quantity: 1 });
+    try {
+      const [invRes, booksRes] = await Promise.all([
+        getLeadInventory(vol._id),
+        getBooks(),
+      ]);
+      setLeadInvData(invRes.data);
+      setAllBooks(booksRes.data);
+    } catch {
+      toast.error('Error loading inventory');
+    } finally {
+      setLeadInvLoading(false);
+    }
+  };
+
+  const handleAllocate = async () => {
+    if (!allocForm.bookId || !allocForm.quantity) return toast.error('Select a book and quantity');
+    setAllocLoading(true);
+    try {
+      await allocateToLead({ leadId: selectedLead._id, bookId: allocForm.bookId, quantity: parseInt(allocForm.quantity) });
+      toast.success('Books allocated successfully');
+      const res = await getLeadInventory(selectedLead._id);
+      setLeadInvData(res.data);
+      setAllocForm({ bookId: '', quantity: 1 });
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Error allocating books');
+    } finally {
+      setAllocLoading(false);
+    }
+  };
+
+  const handleDeallocate = async () => {
+    if (!allocForm.bookId || !allocForm.quantity) return toast.error('Select a book and quantity');
+    setAllocLoading(true);
+    try {
+      await deallocateFromLead({ leadId: selectedLead._id, bookId: allocForm.bookId, quantity: parseInt(allocForm.quantity) });
+      toast.success('Books returned to buffer stock');
+      const res = await getLeadInventory(selectedLead._id);
+      setLeadInvData(res.data);
+      setAllocForm({ bookId: '', quantity: 1 });
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Error deallocating books');
+    } finally {
+      setAllocLoading(false);
+    }
+  };
+
   const [expandedVol, setExpandedVol] = useState(null);
   const [matrixData, setMatrixData] = useState({});
   const [matrixLoading, setMatrixLoading] = useState(null);
@@ -198,8 +259,7 @@ const AdminVolunteers = () => {
               <SortableTableCell label="Contact" field="contactNumber" sortField={sortField} sortDir={sortDir} onSort={handleSort} />
               <SortableTableCell label="City" field="currentCity" sortField={sortField} sortDir={sortDir} onSort={handleSort} />
               <SortableTableCell label="Joined" field="dateOfInclusion" sortField={sortField} sortDir={sortDir} onSort={handleSort} />
-              <SortableTableCell label="Actions" sortField={sortField} sortDir={sortDir} onSort={handleSort} />
-              <TableCell sx={{ color: 'white', fontWeight: 700 }}>Matrix</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 700 }}>Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -207,9 +267,15 @@ const AdminVolunteers = () => {
               <React.Fragment key={vol._id}>
               <TableRow hover>
                 <TableCell>
-                  <Avatar src={vol.profilePhoto?.url} sx={{ width: 36, height: 36 }}>
-                    {vol.name[0]}
-                  </Avatar>
+                  <Tooltip title="View Performance Matrix">
+                    <Avatar
+                      src={vol.profilePhoto?.url}
+                      sx={{ width: 36, height: 36, cursor: 'pointer', '&:hover': { opacity: 0.8, outline: '2px solid #1a237e' } }}
+                      onClick={() => handleExpandVol(vol._id)}
+                    >
+                      {vol.name[0]}
+                    </Avatar>
+                  </Tooltip>
                 </TableCell>
                 <TableCell>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -229,26 +295,23 @@ const AdminVolunteers = () => {
                 <TableCell>{vol.currentCity}</TableCell>
                 <TableCell>{new Date(vol.dateOfInclusion).toLocaleDateString('en-IN')}</TableCell>
                 <TableCell>
-                  <Tooltip title={expandedVol === vol._id ? 'Hide Matrix' : 'View Matrix'}>
-                    <IconButton size="small" color="info" onClick={() => handleExpandVol(vol._id)}>
-                      {expandedVol === vol._id ? <ExpandLess /> : <QueryStats />}
-                    </IconButton>
-                  </Tooltip>
-                </TableCell>
-                <TableCell>
-                  {/* Bookstall Lead toggle - only for active volunteers */}
+                  {/* Book Inventory - only for Bookstall Leads */}
+                  {vol.isBookstallLead && (
+                    <Tooltip title="View / Manage Book Inventory">
+                      <IconButton size="small" color="success" onClick={() => openLeadInventory(vol)}>
+                        <MenuBook />
+                      </IconButton>
+                    </Tooltip>
+                  )}
+                  {/* Toggle Bookstall Lead */}
                   {vol.status === 'active' && (
                     <Tooltip title={vol.isBookstallLead ? 'Remove Bookstall Lead' : 'Make Bookstall Lead'}>
-                      <IconButton
-                        size="small"
-                        color="warning"
-                        onClick={() => handleToggleLead(vol)}
-                      >
+                      <IconButton size="small" color="warning" onClick={() => handleToggleLead(vol)}>
                         {vol.isBookstallLead ? <Star /> : <StarBorder />}
                       </IconButton>
                     </Tooltip>
                   )}
-
+                  {/* Suspend / Revoke */}
                   {vol.status === 'active' && (
                     <Tooltip title="Suspend">
                       <IconButton size="small" color="warning" onClick={() => handleSuspend(vol._id)}>
@@ -263,6 +326,7 @@ const AdminVolunteers = () => {
                       </IconButton>
                     </Tooltip>
                   )}
+                  {/* Remove */}
                   <Tooltip title="Remove">
                     <IconButton size="small" color="error" onClick={() => handleRemove(vol._id)}>
                       <Delete />
@@ -272,7 +336,7 @@ const AdminVolunteers = () => {
               </TableRow>
               {/* Matrix Row */}
               <TableRow>
-                <TableCell colSpan={8} sx={{ p: 0, border: 0 }}>
+                <TableCell colSpan={7} sx={{ p: 0, border: 0 }}>
                   <Collapse in={expandedVol === vol._id}>
                     <Box sx={{ p: 2, bgcolor: 'grey.50', borderBottom: '1px solid', borderColor: 'divider' }}>
                       {matrixLoading === vol._id && (
@@ -307,7 +371,7 @@ const AdminVolunteers = () => {
             ))}
             {sorted.length === 0 && (
               <TableRow>
-                <TableCell colSpan={8} align="center">No volunteers in this category</TableCell>
+                <TableCell colSpan={7} align="center">No volunteers in this category</TableCell>
               </TableRow>
             )}
           </TableBody>
@@ -400,9 +464,101 @@ const AdminVolunteers = () => {
       </Box>
       )} {/* End Gita Members Tab */}
 
+      {/* Lead Inventory Dialog */}
+      <Dialog open={leadInvOpen} onClose={() => setLeadInvOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <MenuBook color="success" />
+            {selectedLead?.name}'s Book Inventory
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          {leadInvLoading && <CircularProgress sx={{ display: 'block', mx: 'auto', my: 3 }} />}
+
+          {!leadInvLoading && (
+            <>
+              {/* Current Inventory Table */}
+              <Typography variant="subtitle1" fontWeight={600} mb={1}>Current Stock</Typography>
+              {leadInvData.length === 0 ? (
+                <Typography variant="body2" color="text.secondary" mb={2}>No books allocated yet.</Typography>
+              ) : (
+                <TableContainer component={Card} variant="outlined" sx={{ mb: 3 }}>
+                  <Table size="small">
+                    <TableHead sx={{ bgcolor: 'grey.100' }}>
+                      <TableRow>
+                        <TableCell fontWeight={700}>Book Title</TableCell>
+                        <TableCell fontWeight={700}>Language</TableCell>
+                        <TableCell align="right" fontWeight={700}>Qty (Personal)</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {leadInvData.map((item) => (
+                        <TableRow key={item._id}>
+                          <TableCell>{item.book?.title}</TableCell>
+                          <TableCell>{item.book?.language}</TableCell>
+                          <TableCell align="right">
+                            <Chip label={item.quantity} color={item.quantity > 0 ? 'success' : 'default'} size="small" />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
+
+              {/* Allocate / Deallocate Form */}
+              <Typography variant="subtitle1" fontWeight={600} mb={2}>Allocate / Deallocate Books</Typography>
+              <Grid container spacing={2} alignItems="center">
+                <Grid item xs={12} md={5}>
+                  <Autocomplete
+                    options={allBooks}
+                    getOptionLabel={(b) => `${b.title} (Buffer: ${b.currentStock})`}
+                    value={allBooks.find((b) => b._id === allocForm.bookId) || null}
+                    onChange={(_, val) => setAllocForm({ ...allocForm, bookId: val?._id || '' })}
+                    renderInput={(params) => <TextField {...params} label="Select Book" size="small" />}
+                  />
+                </Grid>
+                <Grid item xs={6} md={2}>
+                  <TextField
+                    fullWidth size="small" type="number" label="Quantity"
+                    value={allocForm.quantity}
+                    onChange={(e) => setAllocForm({ ...allocForm, quantity: parseInt(e.target.value) || 1 })}
+                    inputProps={{ min: 1 }}
+                  />
+                </Grid>
+                <Grid item xs={6} md={2}>
+                  <Button
+                    variant="contained" color="success" fullWidth
+                    onClick={handleAllocate} disabled={allocLoading}
+                    startIcon={<Add />}
+                  >
+                    {allocLoading ? <CircularProgress size={18} color="inherit" /> : 'Allocate'}
+                  </Button>
+                </Grid>
+                <Grid item xs={6} md={3}>
+                  <Button
+                    variant="outlined" color="error" fullWidth
+                    onClick={handleDeallocate} disabled={allocLoading}
+                    startIcon={<Inventory />}
+                  >
+                    {allocLoading ? <CircularProgress size={18} color="inherit" /> : 'Deallocate'}
+                  </Button>
+                </Grid>
+              </Grid>
+              <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                Allocate moves books from buffer stock to this lead. Deallocate returns them to buffer.
+              </Typography>
+            </>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setLeadInvOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
       {/* Add Volunteer Dialog */}
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Add New Volunteer</DialogTitle>
+      <DialogTitle>Add New Volunteer</DialogTitle>
         <DialogContent>
           <TextField fullWidth label="Full Name *" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} margin="normal" />
           <TextField fullWidth label="Gmail ID *" type="email" value={form.gmailId} onChange={(e) => setForm({ ...form, gmailId: e.target.value })} margin="normal" helperText="This Gmail will be used for login" />

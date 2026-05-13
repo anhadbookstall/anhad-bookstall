@@ -3,9 +3,10 @@ import React, { useState, useEffect } from 'react';
 import {
   Box, Card, CardContent, Typography, TextField, Button,
   Avatar, Autocomplete, Chip, Grid, CircularProgress,
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
 } from '@mui/material';
-import { CameraAlt, Save } from '@mui/icons-material';
-import { getVolunteer, updateVolunteer, uploadVolunteerPhoto, getBooks, getCities, getVolunteerMatrix } from '../../services/api';
+import { CameraAlt, Save, MenuBook } from '@mui/icons-material';
+import { getVolunteer, updateVolunteer, uploadVolunteerPhoto, getBooks, getCities, getVolunteerMatrix, getMyLeadInventory } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { toast } from 'react-toastify';
 
@@ -17,6 +18,7 @@ const VolunteerProfile = () => {
   const [form, setForm] = useState({ profession: '', booksReadRecommendedByAP: '', willingCities: [], booksReadByAP: [] });
   const [loading, setLoading] = useState(false);
   const [matrix, setMatrix] = useState(null);
+  const [leadInventory, setLeadInventory] = useState([]);
 
   useEffect(() => {
     if (user?.id) {
@@ -32,6 +34,9 @@ const VolunteerProfile = () => {
       getBooks().then((r) => setBooks(r.data));
       getCities().then((r) => setCities(r.data));
       getVolunteerMatrix(user.id).then((r) => setMatrix(r.data)).catch(() => {});
+      if (user.isBookstallLead) {
+        getMyLeadInventory().then((r) => setLeadInventory(r.data)).catch(() => {});
+      }
     }
   }, [user]);
 
@@ -156,6 +161,50 @@ const VolunteerProfile = () => {
                 </Grid>
               ))}
             </Grid>
+          </CardContent>
+        </Card>
+      )}
+    {/* Lead Inventory Card - only for Bookstall Leads */}
+      {user?.isBookstallLead && (
+        <Card sx={{ mt: 3 }}>
+          <CardContent>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+              <MenuBook color="success" />
+              <Typography variant="h6">📦 My Book Inventory</Typography>
+            </Box>
+
+            {leadInventory.length === 0 ? (
+              <Typography variant="body2" color="text.secondary">
+                No books allocated to you yet. Contact admin to allocate books.
+              </Typography>
+            ) : (
+              <TableContainer>
+                <Table size="small">
+                  <TableHead sx={{ bgcolor: 'grey.100' }}>
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 700 }}>Book Title</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>Language</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }} align="right">My Stock</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {leadInventory.map((item) => (
+                      <TableRow key={item._id}>
+                        <TableCell>{item.book?.title}</TableCell>
+                        <TableCell>{item.book?.language}</TableCell>
+                        <TableCell align="right">
+                          <Chip
+                            label={item.quantity}
+                            color={item.quantity < 3 ? 'warning' : 'success'}
+                            size="small"
+                          />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
           </CardContent>
         </Card>
       )}

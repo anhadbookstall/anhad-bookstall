@@ -24,6 +24,7 @@ const dashboardRoutes = require('./routes/dashboard');
 const notificationRoutes = require('./routes/notifications');
 const reflectionPostRoutes = require('./routes/reflectionPosts');
 const themeRoutes = require('./routes/themes');
+const leadInventoryRoutes = require('./routes/leadInventory');
 const gitaMemberRoutes = require('./routes/gitaMembers');
 require('./models/ReflectionPost');
 
@@ -50,6 +51,7 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/reflection-posts', reflectionPostRoutes);
 app.use('/api/themes', themeRoutes);
+app.use('/api/lead-inventory', leadInventoryRoutes);
 app.use('/api/gita-members', gitaMemberRoutes);
 
 // Health check endpoint for Render

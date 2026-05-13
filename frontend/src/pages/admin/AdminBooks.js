@@ -6,10 +6,10 @@ import {
   TableHead, TableRow, Typography, IconButton, Dialog, DialogTitle,
   DialogContent, DialogActions, TextField, MenuItem, Chip, Tooltip,
   InputAdornment, Autocomplete, Tabs, Tab, Collapse, Grid, Divider,
-  CircularProgress, Alert,
+  CircularProgress, Alert, Avatar, List, ListItem, ListItemAvatar, ListItemText,
 } from '@mui/material';
 import { Add, Edit, Delete, Search, Warning, ExpandMore, ExpandLess, UploadFile, CheckCircle } from '@mui/icons-material';
-import { getBooks, addBook, updateBook, deleteBook, getInventoryHistory, updateInventory, parseInvoice, confirmInvoice, getBookInventoryHistory } from '../../services/api';
+import { getBooks, addBook, updateBook, deleteBook, getInventoryHistory, updateInventory, parseInvoice, confirmInvoice, getBookInventoryHistory, getBookLeadDistribution } from '../../services/api';
 import { toast } from 'react-toastify';
 import { useSort } from '../../utils/useSort';
 import SortableTableCell from '../../components/common/SortableTableCell';
@@ -46,6 +46,25 @@ const AdminBooks = () => {
 
   const { sorted: sortedBooks0, sortField: sf0, sortDir: sd0, handleSort: hs0 } = useSort(books);
   const { sorted: sortedBooks1, sortField: sf1, sortDir: sd1, handleSort: hs1 } = useSort(books);
+
+  const [stockDistOpen, setStockDistOpen] = useState(false);
+  const [stockDistBook, setStockDistBook] = useState(null);
+  const [stockDistData, setStockDistData] = useState([]);
+  const [stockDistLoading, setStockDistLoading] = useState(false);
+
+  const handleStockClick = async (book) => {
+    setStockDistBook(book);
+    setStockDistOpen(true);
+    setStockDistLoading(true);
+    try {
+      const res = await getBookLeadDistribution(book._id);
+      setStockDistData(res.data);
+    } catch {
+      toast.error('Error loading stock distribution');
+    } finally {
+      setStockDistLoading(false);
+    }
+  };
 
   const fetchBooks = async () => {
     const res = await getBooks({ search });
@@ -277,12 +296,16 @@ const AdminBooks = () => {
                     <TableCell>{book.publication}</TableCell>
                     <TableCell>₹{book.unitCost}</TableCell>
                     <TableCell>
-                      <Chip
-                        label={book.currentStock}
-                        color={book.currentStock < 3 ? 'error' : 'success'}
-                        size="small"
-                        icon={book.currentStock < 3 ? <Warning /> : undefined}
-                      />
+                      <Tooltip title="Click to see stock distribution across leads">
+                        <Chip
+                          label={book.currentStock}
+                          color={book.currentStock < 3 ? 'error' : 'success'}
+                          size="small"
+                          icon={book.currentStock < 3 ? <Warning /> : undefined}
+                          onClick={() => handleStockClick(book)}
+                          sx={{ cursor: 'pointer' }}
+                        />
+                      </Tooltip>
                     </TableCell>
                     <TableCell>
                       <Tooltip title={expandedBook === book._id ? 'Hide transactions' : 'Show last 5 transactions'}>
@@ -466,6 +489,65 @@ const AdminBooks = () => {
             )}
           </DialogActions>
         </Dialog>
+      {/* Stock Distribution Dialog */}
+        <Dialog open={stockDistOpen} onClose={() => setStockDistOpen(false)} maxWidth="sm" fullWidth>
+          <DialogTitle>
+            📦 Stock Distribution — {stockDistBook?.title}
+          </DialogTitle>
+          <DialogContent>
+            {stockDistLoading && <CircularProgress sx={{ display: 'block', mx: 'auto', my: 3 }} />}
+            {!stockDistLoading && stockDistBook && (
+              <Box>
+                {/* Buffer Stock */}
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 2, bgcolor: 'primary.light', borderRadius: 2, mb: 2 }}>
+                  <Typography variant="subtitle1" fontWeight={700} color="primary.contrastText">
+                    🏦 Buffer Stock (Admin)
+                  </Typography>
+                  <Chip label={stockDistBook.currentStock} color="primary" />
+                </Box>
+
+                {/* Lead-wise distribution */}
+                <Typography variant="subtitle2" color="text.secondary" mb={1}>
+                  Allocated to Bookstall Leads:
+                </Typography>
+                {stockDistData.length === 0 ? (
+                  <Typography variant="body2" color="text.secondary">
+                    No books allocated to any lead yet.
+                  </Typography>
+                ) : (
+                  <List dense>
+                    {stockDistData.map((item) => (
+                      <ListItem key={item._id} sx={{ bgcolor: 'grey.50', borderRadius: 2, mb: 0.5 }}
+                        secondaryAction={
+                          <Chip label={item.quantity} color={item.quantity < 3 ? 'warning' : 'success'} size="small" />
+                        }>
+                        <ListItemAvatar>
+                          <Avatar src={item.lead?.profilePhoto?.url} sx={{ width: 32, height: 32 }}>
+                            {item.lead?.name?.[0]}
+                          </Avatar>
+                        </ListItemAvatar>
+                        <ListItemText primary={item.lead?.name} />
+                      </ListItem>
+                    ))}
+                  </List>
+                )}
+
+                {/* Total */}
+                <Divider sx={{ my: 2 }} />
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Typography variant="body2" fontWeight={600}>Total Stock (Buffer + All Leads)</Typography>
+                  <Typography variant="body2" fontWeight={700}>
+                    {stockDistBook.currentStock + stockDistData.reduce((sum, item) => sum + item.quantity, 0)}
+                  </Typography>
+                </Box>
+              </Box>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setStockDistOpen(false)}>Close</Button>
+          </DialogActions>
+        </Dialog>
+
       </Box>
       )} {/* End Tab 1 */}
 

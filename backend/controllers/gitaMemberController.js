@@ -31,11 +31,10 @@ const applyMembership = async (req, res) => {
 
   // Notify admin
   await Notification.create({
-    recipient: 'admin',
-    type: 'new_application',
+    isForAdmin: true,
+    type: 'general',
     title: 'New Volunteer Application',
-    message: `${name} has applied to join as a Gita Member volunteer.`,
-    relatedId: member._id,
+    message: `${name} has applied to join as a Gita Member volunteer. Check Gita Members tab to review.`,
   });
 
   res.status(201).json({ message: 'Application submitted successfully! Admin will review your request.' });
