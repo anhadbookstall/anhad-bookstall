@@ -225,15 +225,28 @@ const ActiveBookstall = () => {
     if (!startForm.cityId || !startForm.location) {
       return toast.error('City and location are required');
     }
+
+    // Get GPS coordinates - mandatory
     setLoading(true);
+    const coords = await new Promise((resolve) => {
+      if (!navigator.geolocation) {
+        resolve(null);
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
+        () => resolve(null),
+        { timeout: 15000, enableHighAccuracy: true }
+      );
+    });
+
+    if (!coords) {
+      setLoading(false);
+      toast.error('📍 Location access is required to start a bookstall. Please allow location permission in your browser and try again.');
+      return;
+    }
+
     try {
-      const coords = await new Promise((resolve) => {
-        navigator.geolocation.getCurrentPosition(
-          (pos) => resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
-          () => resolve(null),
-          { timeout: 5000 }
-        );
-      });
       const res = await startBookstall({ ...startForm, coordinates: coords });
       setMyBookstall(res.data);
       setBookstalls((prev) => [...prev, res.data]);
@@ -440,7 +453,7 @@ const ActiveBookstall = () => {
                 )}
               />
 
-              <Alert severity="info" sx={{ mt: 2 }}>📍 GPS coordinates will be captured automatically.</Alert>
+              <Alert severity="warning" sx={{ mt: 2 }}>📍 Location access is <strong>mandatory</strong> to start a bookstall. Please allow location permission when prompted — the bookstall will appear on the live map.</Alert>
 
               <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
                 <Button variant="outlined" fullWidth onClick={() => setShowStartForm(false)}>Cancel</Button>

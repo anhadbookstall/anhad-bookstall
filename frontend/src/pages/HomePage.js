@@ -8,7 +8,7 @@ import {
   Drawer, FormControlLabel, Radio, RadioGroup, FormLabel, Divider,
 } from '@mui/material';
 import { Close, Lock } from '@mui/icons-material';
-import { adminLogin, volunteerGoogleLogin, applyGitaMembership } from '../services/api';
+import { adminLogin, volunteerGoogleLogin, applyGitaMembership, getBookstalls } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
@@ -16,10 +16,8 @@ import { toast } from 'react-toastify';
 // Fetch active bookstalls without auth
 const fetchActiveBookstalls = async () => {
   try {
-    const res = await fetch(`${process.env.REACT_APP_API_URL}/bookstalls?status=ongoing`);
-    if (!res.ok) return [];
-    const data = await res.json();
-    return data;
+    const res = await getBookstalls({ status: 'ongoing' });
+    return res.data || [];
   } catch { return []; }
 };
 
