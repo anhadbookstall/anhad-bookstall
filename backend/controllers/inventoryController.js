@@ -213,7 +213,19 @@ const confirmInvoice = async (req, res) => {
       : undefined,
   });
 
-  // post('save') hook on InventoryUpdate model auto-increments Book.currentStock
+  // Auto-create expenditure record for book purchase
+  const Expenditure = require('../models/Expenditure');
+  const totalCost = items.reduce((sum, item) =>
+    sum + (parseInt(item.quantity) * parseFloat(item.unitCost || 0)), 0
+  );
+  const bookNames = items.map((item) => `${item.title} ×${item.quantity}`).join(', ');
+  await Expenditure.create({
+    detail: `Book Purchase: ${bookNames}`,
+    type: 'one-time',
+    cost: totalCost,
+    dateOfExpenditure: dateReceived || new Date(),
+    addedBy: 'Admin (Inventory)',
+  });
 
   res.status(201).json({
     message: `Stock updated for ${items.length} book(s)`,
@@ -258,6 +270,25 @@ const updateInventory = async (req, res) => {
     items: processedItems,
     dateReceived: dateReceived || new Date(),
     notes,
+  });
+
+  // Auto-create expenditure record for book purchase
+  const Expenditure = require('../models/Expenditure');
+  const totalCost = processedItems.reduce((sum, item) =>
+    sum + (item.quantity * (item.unitCostAtTime || 0)), 0
+  );
+  const bookDetails = await Promise.all(
+    processedItems.map(async (item) => {
+      const book = await Book.findById(item.book).select('title');
+      return `${book?.title || 'Unknown'} ×${item.quantity}`;
+    })
+  );
+  await Expenditure.create({
+    detail: `Book Purchase: ${bookDetails.join(', ')}`,
+    type: 'one-time',
+    cost: totalCost,
+    dateOfExpenditure: dateReceived || new Date(),
+    addedBy: 'Admin (Inventory)',
   });
 
   res.status(201).json(inventoryUpdate);
