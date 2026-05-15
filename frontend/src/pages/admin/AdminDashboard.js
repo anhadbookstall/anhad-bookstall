@@ -7,7 +7,7 @@ import {
   IconButton, Chip, Divider, Alert, LinearProgress,
 } from '@mui/material';
 import {
-  MenuBook, People, Store, TrendingUp, Warning, AccountBalance, Inventory, Delete,
+  MenuBook, People, Store, TrendingUp, Warning, AccountBalance, Inventory, Delete, Edit,
 } from '@mui/icons-material';
 import {
   Chart as ChartJS, CategoryScale, LinearScale, BarElement, LineElement,
@@ -60,6 +60,7 @@ const AdminDashboard = () => {
   });
   const [targetNotSet, setTargetNotSet] = useState(false);
   const [currentMonthData, setCurrentMonthData] = useState(null);
+  const [editMode, setEditMode] = useState(false);
 
   const fetchData = async () => {
     setLoading(true);
@@ -88,6 +89,14 @@ const AdminDashboard = () => {
     checkMonthlyTarget().then((r) => {
       setTargetNotSet(!r.data.isSet);
       setCurrentMonthData(r.data.theme);
+      if (r.data.theme) {
+        setThemeForm((f) => ({
+          ...f,
+          theme: r.data.theme.theme || '',
+          targetBooksSold: r.data.theme.targetBooksSold || '',
+          targetBookstalls: r.data.theme.targetBookstalls || '',
+        }));
+      }
     }).catch(() => {});
   }, []);
 
@@ -103,8 +112,8 @@ const AdminDashboard = () => {
       const targetRes = await checkMonthlyTarget();
       setTargetNotSet(!targetRes.data.isSet);
       setCurrentMonthData(targetRes.data.theme);
-      setThemeForm((f) => ({ ...f, theme: '', targetBooksSold: '', targetBookstalls: '' }));
       toast.success('Saved successfully!');
+      setEditMode(false);
     } catch {
       toast.error('Error saving');
     }
@@ -174,57 +183,88 @@ const AdminDashboard = () => {
       {/* Monthly Theme & Target Management */}
       <Card sx={{ mb: 3 }} id="monthly-target-section">
         <CardContent>
-          <Typography variant="h6" mb={2}>🌿 Monthly Theme & Target</Typography>
-          <Grid container spacing={2} alignItems="center">
-            <Grid item xs={6} md={2}>
-              <TextField
-                select fullWidth label="Year" size="small"
-                value={themeForm.year}
-                onChange={(e) => setThemeForm({ ...themeForm, year: parseInt(e.target.value) })}
-              >
-                {[2024, 2025, 2026, 2027].map((y) => <MenuItem key={y} value={y}>{y}</MenuItem>)}
-              </TextField>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Typography variant="h6">🌿 Monthly Theme & Target</Typography>
+            <Chip
+              label={`${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][new Date().getMonth()]} ${new Date().getFullYear()}`}
+              color="primary" size="small"
+            />
+          </Box>
+
+          {/* Show locked view if already set and not in edit mode */}
+          {currentMonthData && !editMode ? (
+            <Box>
+              <Grid container spacing={2} alignItems="center">
+                <Grid item xs={12} md={5}>
+                  <TextField
+                    fullWidth label="Theme" size="small"
+                    value={currentMonthData.theme || '—'}
+                    disabled
+                  />
+                </Grid>
+                <Grid item xs={6} md={2}>
+                  <TextField
+                    fullWidth label="Target Books" size="small"
+                    value={currentMonthData.targetBooksSold || 0}
+                    disabled
+                  />
+                </Grid>
+                <Grid item xs={6} md={2}>
+                  <TextField
+                    fullWidth label="Target Bookstalls" size="small"
+                    value={currentMonthData.targetBookstalls || 0}
+                    disabled
+                  />
+                </Grid>
+                <Grid item xs={12} md={3}>
+                  <Button
+                    variant="outlined" fullWidth startIcon={<Edit />}
+                    onClick={() => setEditMode(true)}
+                  >
+                    Edit This Month
+                  </Button>
+                </Grid>
+              </Grid>
+            </Box>
+          ) : (
+            <Grid container spacing={2} alignItems="center">
+              <Grid item xs={12} md={5}>
+                <TextField
+                  fullWidth label="Theme (e.g. #ClimateAwarenessMonth)" size="small"
+                  value={themeForm.theme}
+                  onChange={(e) => setThemeForm({ ...themeForm, theme: e.target.value })}
+                />
+              </Grid>
+              <Grid item xs={6} md={2}>
+                <TextField
+                  fullWidth label="Target Books" size="small" type="number"
+                  value={themeForm.targetBooksSold}
+                  onChange={(e) => setThemeForm({ ...themeForm, targetBooksSold: e.target.value })}
+                  inputProps={{ min: 0 }}
+                />
+              </Grid>
+              <Grid item xs={6} md={2}>
+                <TextField
+                  fullWidth label="Target Bookstalls" size="small" type="number"
+                  value={themeForm.targetBookstalls}
+                  onChange={(e) => setThemeForm({ ...themeForm, targetBookstalls: e.target.value })}
+                  inputProps={{ min: 0 }}
+                />
+              </Grid>
+              <Grid item xs={6} md={2}>
+                <Button variant="contained" fullWidth onClick={handleSetTheme}>
+                  Save
+                </Button>
+              </Grid>
+              {editMode && (
+                <Grid item xs={6} md={1}>
+                  <Button variant="outlined" fullWidth onClick={() => setEditMode(false)}>
+                    Cancel
+                  </Button>
+                </Grid>
+              )}
             </Grid>
-            <Grid item xs={6} md={2}>
-              <TextField
-                select fullWidth label="Month" size="small"
-                value={themeForm.month}
-                onChange={(e) => setThemeForm({ ...themeForm, month: parseInt(e.target.value) })}
-              >
-                {['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].map((m, i) => (
-                  <MenuItem key={i + 1} value={i + 1}>{m}</MenuItem>
-                ))}
-              </TextField>
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <TextField
-                fullWidth label="Theme (e.g. #ClimateAwarenessMonth)" size="small"
-                value={themeForm.theme}
-                onChange={(e) => setThemeForm({ ...themeForm, theme: e.target.value })}
-              />
-            </Grid>
-            <Grid item xs={6} md={2}>
-              <TextField
-                fullWidth label="Target Books" size="small" type="number"
-                value={themeForm.targetBooksSold}
-                onChange={(e) => setThemeForm({ ...themeForm, targetBooksSold: e.target.value })}
-                inputProps={{ min: 0 }}
-              />
-            </Grid>
-            <Grid item xs={6} md={2}>
-              <TextField
-                fullWidth label="Target Bookstalls" size="small" type="number"
-                value={themeForm.targetBookstalls}
-                onChange={(e) => setThemeForm({ ...themeForm, targetBookstalls: e.target.value })}
-                inputProps={{ min: 0 }}
-              />
-            </Grid>
-            <Grid item xs={12} md={2}>
-              <Button variant="contained" fullWidth onClick={handleSetTheme}>
-                Save
-              </Button>
-            </Grid>
-          </Grid>
+          )}
 
           {/* Current Month Target Progress */}
           {currentMonthData && (currentMonthData.targetBooksSold > 0 || currentMonthData.targetBookstalls > 0) && (() => {
