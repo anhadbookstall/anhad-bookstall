@@ -196,12 +196,23 @@ const ActiveBookstall = () => {
       const res = await getActiveBookstall();
       const all = res.data || [];
       setBookstalls(all);
-      // Find bookstall where I am lead or present
-      const mine = all.find((bs) =>
-        isSameId(bs.lead?._id || bs.lead, user?.id) ||
-        bs.attendance?.some((a) => isSameId(a.volunteer?._id || a.volunteer, user?.id) && a.isPresent)
+
+      // Priority 1: bookstall where I am the lead
+      const asLead = all.find((bs) =>
+        isSameId(bs.lead?._id || bs.lead, user?.id)
       );
-      setMyBookstall(mine || null);
+
+      if (asLead) {
+        setMyBookstall(asLead);
+      } else {
+        // Priority 2: bookstall where I am present in attendance
+        const asAttendee = all.find((bs) =>
+          bs.attendance?.some((a) =>
+            isSameId(a.volunteer?._id || a.volunteer, user?.id) && a.isPresent
+          )
+        );
+        setMyBookstall(asAttendee || null);
+      }
     } catch {
       setBookstalls([]);
       setMyBookstall(null);
