@@ -477,35 +477,6 @@ const AdminVolunteers = () => {
 
           {!leadInvLoading && (
             <>
-              {/* Current Inventory Table */}
-              <Typography variant="subtitle1" fontWeight={600} mb={1}>Current Stock</Typography>
-              {leadInvData.length === 0 ? (
-                <Typography variant="body2" color="text.secondary" mb={2}>No books allocated yet.</Typography>
-              ) : (
-                <TableContainer component={Card} variant="outlined" sx={{ mb: 3 }}>
-                  <Table size="small">
-                    <TableHead sx={{ bgcolor: 'grey.100' }}>
-                      <TableRow>
-                        <TableCell fontWeight={700}>Book Title</TableCell>
-                        <TableCell fontWeight={700}>Language</TableCell>
-                        <TableCell align="right" fontWeight={700}>Qty (Personal)</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {leadInvData.map((item) => (
-                        <TableRow key={item._id}>
-                          <TableCell>{item.book?.title}</TableCell>
-                          <TableCell>{item.book?.language}</TableCell>
-                          <TableCell align="right">
-                            <Chip label={item.quantity} color={item.quantity > 0 ? 'success' : 'default'} size="small" />
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              )}
-
               {/* Allocate / Deallocate Form */}
               <Typography variant="subtitle1" fontWeight={600} mb={2}>Allocate / Deallocate Books</Typography>
               <Grid container spacing={2} alignItems="center">
@@ -545,9 +516,38 @@ const AdminVolunteers = () => {
                   </Button>
                 </Grid>
               </Grid>
-              <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+              <Typography variant="caption" color="text.secondary" sx={{ mt: 1, mb: 3, display: 'block' }}>
                 Allocate moves books from buffer stock to this lead. Deallocate returns them to buffer.
               </Typography>
+
+              {/* Current Inventory Table */}
+              <Typography variant="subtitle1" fontWeight={600} mb={1}>Current Stock</Typography>
+              {leadInvData.length === 0 ? (
+                <Typography variant="body2" color="text.secondary" mb={2}>No books allocated yet.</Typography>
+              ) : (
+                <TableContainer component={Card} variant="outlined" sx={{ mb: 3 }}>
+                  <Table size="small">
+                    <TableHead sx={{ bgcolor: 'grey.100' }}>
+                      <TableRow>
+                        <TableCell fontWeight={700}>Book Title</TableCell>
+                        <TableCell fontWeight={700}>Language</TableCell>
+                        <TableCell align="right" fontWeight={700}>Qty (Personal)</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {leadInvData.map((item) => (
+                        <TableRow key={item._id}>
+                          <TableCell>{item.book?.title}</TableCell>
+                          <TableCell>{item.book?.language}</TableCell>
+                          <TableCell align="right">
+                            <Chip label={item.quantity} color={item.quantity > 0 ? 'success' : 'default'} size="small" />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
             </>
           )}
         </DialogContent>

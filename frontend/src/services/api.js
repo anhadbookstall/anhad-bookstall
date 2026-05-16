@@ -153,3 +153,5 @@ export const getLeadInventory = (leadId) => api.get(`/lead-inventory/lead/${lead
 export const getBookLeadDistribution = (bookId) => api.get(`/lead-inventory/book/${bookId}`);
 export const allocateToLead = (data) => api.post('/lead-inventory/allocate', data);
 export const deallocateFromLead = (data) => api.post('/lead-inventory/deallocate', data);
+
+export const getCityVolunteers = (id) => api.get(`/cities/${id}/volunteers`);

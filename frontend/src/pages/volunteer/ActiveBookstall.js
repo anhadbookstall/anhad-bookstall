@@ -13,8 +13,9 @@ import {
 } from '@mui/icons-material';
 import {
   getActiveBookstall, startBookstall, closeBookstall, exitBookstall,
-  rejoinBookstall, joinBookstall, addSale, getBooks, getCities,
+  rejoinBookstall, joinBookstall, addSale, getBooks,
   getVolunteers, getBookstallSummary, createReflectionPost, getMyLeadInventory,
+  getLeadInventory,
 } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { getMe } from '../../services/api';
@@ -177,19 +178,28 @@ const ActiveBookstall = () => {
   useEffect(() => {
     fetchBookstall();
     fetchBooks();
-    getCities().then((r) => setCities(r.data)).catch(() => {});
     getVolunteers({ status: 'active' }).then((r) => {
       setVolunteers(r.data.filter((v) => !isSameId(v._id, user?.id)));
     }).catch(() => {});
-    // Fetch fresh user data to get latest isBookstallLead value
+    // Fetch fresh user data to get latest isBookstallLead value and willing cities
     getMe().then((r) => {
       setIsLead(r.data.isBookstallLead || false);
-      // If lead, fetch their personal inventory
-      if (r.data.isBookstallLead) {
-        getMyLeadInventory().then((inv) => setLeadInventory(inv.data)).catch(() => {});
-      }
+      // Only show cities the lead has opted to volunteer in
+      setCities(r.data.willingCities || []);
     }).catch(() => {});
   }, []);
+
+  // Fetch bookstall LEAD's inventory whenever active bookstall changes
+  useEffect(() => {
+    if (myBookstall) {
+      const leadId = myBookstall.lead?._id || myBookstall.lead;
+      if (leadId) {
+        getLeadInventory(leadId).then((inv) => setLeadInventory(inv.data)).catch(() => {});
+      }
+    } else {
+      setLeadInventory([]);
+    }
+  }, [myBookstall]);
 
   const fetchBookstall = async () => {
     try {
@@ -285,9 +295,12 @@ const ActiveBookstall = () => {
       setSaleForm(emptySaleForm);
       setSalePhoto(null);
       fetchBooks();
-      // Refresh lead inventory after sale
-      if (isActiveLead) {
-        getMyLeadInventory().then((inv) => setLeadInventory(inv.data)).catch(() => {});
+      // Refresh bookstall lead's inventory after sale
+      if (myBookstall) {
+        const leadId = myBookstall.lead?._id || myBookstall.lead;
+        if (leadId) {
+          getLeadInventory(leadId).then((inv) => setLeadInventory(inv.data)).catch(() => {});
+        }
       }
     } catch (err) {
       toast.error(err.response?.data?.message || 'Error recording sale');
@@ -563,27 +576,19 @@ const ActiveBookstall = () => {
               <Grid item xs={12} md={6}>
                 {/* Fix 2: Books list is refreshed after each sale so stock is up to date */}
                 <Autocomplete
-                  options={
-                    isActiveLead
-                      ? leadInventory.filter((item) => item.quantity > 0).map((item) => ({
-                          _id: item.book._id,
-                          title: item.book.title,
-                          unitCost: item.book.unitCost,
-                          currentStock: item.quantity, // show lead's personal stock
-                        }))
-                      : books.filter((b) => b.currentStock > 0)
-                  }
-                  getOptionLabel={(b) => `${b.title} (My Stock: ${b.currentStock})`}
-                  value={
-                    isActiveLead
-                      ? leadInventory.filter((i) => i.quantity > 0).map((i) => ({
-                          _id: i.book._id, title: i.book.title,
-                          unitCost: i.book.unitCost, currentStock: i.quantity,
-                        })).find((b) => b._id === saleForm.bookId) || null
-                      : books.find((b) => b._id === saleForm.bookId) || null
-                  }
+                  options={leadInventory.filter((item) => item.quantity > 0).map((item) => ({
+                    _id: item.book._id,
+                    title: item.book.title,
+                    unitCost: item.book.unitCost,
+                    currentStock: item.quantity,
+                  }))}
+                  getOptionLabel={(b) => `${b.title} (Stock: ${b.currentStock})`}
+                  value={leadInventory.filter((i) => i.quantity > 0).map((i) => ({
+                    _id: i.book._id, title: i.book.title,
+                    unitCost: i.book.unitCost, currentStock: i.quantity,
+                  })).find((b) => b._id === saleForm.bookId) || null}
                   onChange={(_, val) => setSaleForm({ ...saleForm, bookId: val?._id || '', soldPrice: val?.unitCost || '' })}
-                  noOptionsText={isActiveLead ? 'No books in your personal inventory' : 'No books available in stock'}
+                  noOptionsText="No books available in this bookstall's stock"
                   renderInput={(params) => <TextField {...params} label="Book Title *" />}
                 />
               </Grid>
