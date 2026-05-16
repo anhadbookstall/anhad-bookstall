@@ -221,7 +221,7 @@ const confirmInvoice = async (req, res) => {
   const bookNames = items.map((item) => `${item.title} ×${item.quantity}`).join(', ');
   await Expenditure.create({
     detail: `Book Purchase: ${bookNames}`,
-    type: 'one-time',
+    type: 'recurring',
     cost: totalCost,
     dateOfExpenditure: dateReceived || new Date(),
     addedBy: 'Admin (Inventory)',
@@ -285,7 +285,7 @@ const updateInventory = async (req, res) => {
   );
   await Expenditure.create({
     detail: `Book Purchase: ${bookDetails.join(', ')}`,
-    type: 'one-time',
+    type: 'recurring',
     cost: totalCost,
     dateOfExpenditure: dateReceived || new Date(),
     addedBy: 'Admin (Inventory)',
