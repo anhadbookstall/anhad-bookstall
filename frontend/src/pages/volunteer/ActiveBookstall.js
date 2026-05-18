@@ -157,6 +157,7 @@ const ActiveBookstall = () => {
   const [saleForm, setSaleForm] = useState(emptySaleForm);
   const [salePhoto, setSalePhoto] = useState(null);
   const [saleLoading, setSaleLoading] = useState(false);
+  const [locationDenied, setLocationDenied] = useState(false);
   const [leadInventory, setLeadInventory] = useState([]); // lead's personal stock
 
   const bookstall = myBookstall; // alias for backward compatibility
@@ -252,7 +253,7 @@ const ActiveBookstall = () => {
 
     if (!coords) {
       setLoading(false);
-      toast.error('📍 Location access is required to start a bookstall. Please allow location permission in your browser and try again.');
+      setLocationDenied(true);
       return;
     }
 
@@ -427,7 +428,60 @@ const ActiveBookstall = () => {
           </Button>
         )}
 
-        {isLead && showStartForm && (
+        {/* Location Permission Help Dialog */}
+      <Dialog open={locationDenied} onClose={() => setLocationDenied(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          📍 Location Permission Required
+        </DialogTitle>
+        <DialogContent>
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            Location access is mandatory to start a bookstall so it appears on the live map.
+          </Alert>
+          <Typography variant="body2" fontWeight={600} mb={1}>
+            How to allow location on your device:
+          </Typography>
+          <Box sx={{ bgcolor: 'grey.50', borderRadius: 2, p: 2 }}>
+            <Typography variant="body2" mb={1}>
+              <strong>On Android (Chrome):</strong>
+            </Typography>
+            <Typography variant="body2" color="text.secondary" mb={2}>
+              1. Tap the 🔒 lock icon in the address bar{'\n'}
+              2. Tap <strong>Permissions</strong>{'\n'}
+              3. Set <strong>Location</strong> to <strong>Allow</strong>{'\n'}
+              4. Refresh the page and try again
+            </Typography>
+            <Typography variant="body2" mb={1}>
+              <strong>On iPhone (Safari):</strong>
+            </Typography>
+            <Typography variant="body2" color="text.secondary" mb={2}>
+              1. Go to iPhone <strong>Settings</strong>{'\n'}
+              2. Scroll to <strong>Safari</strong>{'\n'}
+              3. Tap <strong>Location</strong> → Set to <strong>Ask</strong> or <strong>Allow</strong>{'\n'}
+              4. Come back and try again
+            </Typography>
+            <Typography variant="body2" mb={1}>
+              <strong>On Computer (Chrome):</strong>
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              1. Click the 🔒 lock icon in address bar{'\n'}
+              2. Click <strong>Site settings</strong>{'\n'}
+              3. Set <strong>Location</strong> to <strong>Allow</strong>{'\n'}
+              4. Refresh and try again
+            </Typography>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setLocationDenied(false)}>Close</Button>
+          <Button variant="contained" onClick={() => {
+            setLocationDenied(false);
+            setShowStartForm(true);
+          }}>
+            Try Again
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {isLead && showStartForm && (
           <Card sx={{ mb: 4, border: '2px solid', borderColor: 'success.main' }}>
             <CardContent>
               <Typography variant="h6" mb={2} color="success.main">Start Bookstall</Typography>
