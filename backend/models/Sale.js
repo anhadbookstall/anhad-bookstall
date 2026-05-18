@@ -69,12 +69,19 @@ const saleSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
+    soldByLead: {
+      type: Boolean,
+      default: false, // true if sold by bookstall lead (uses lead's personal stock)
+    },
   },
   { timestamps: true }
 );
 
 // After saving a sale, decrease inventory for that book
+// Skip if sold by lead - lead sales are handled manually in saleController
 saleSchema.post('save', async function () {
+  console.log('post save hook - soldByLead:', this.soldByLead, 'quantity:', this.quantity);
+  if (this.soldByLead) return;
   const Book = require('./Book');
   await Book.findByIdAndUpdate(this.book, {
     $inc: { currentStock: -this.quantity },

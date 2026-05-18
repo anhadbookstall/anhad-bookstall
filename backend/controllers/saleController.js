@@ -68,13 +68,12 @@ const addSale = async (req, res) => {
 
   const sale = await Sale.create(saleData);
 
-  // Always reduce bookstall lead's personal stock
+  // Reduce bookstall lead's personal stock only
+  // Book.currentStock (buffer) is NOT touched - overall stock = buffer + lead stocks
   await LeadInventory.findOneAndUpdate(
     { lead: leadId, book: bookId },
     { $inc: { quantity: -parseInt(quantity) } }
   );
-  // Reduce overall stock manually (hook skipped since soldByLead: true)
-  await Book.findByIdAndUpdate(bookId, { $inc: { currentStock: -parseInt(quantity) } });
 
   // Check if stock dropped below 3 and notify admin
   const updatedBook = await Book.findById(bookId);
