@@ -25,8 +25,9 @@ const AdminCities = () => {
       try {
         const res = await getCityVolunteers(cityId);
         setCityVolunteers((prev) => ({ ...prev, [cityId]: res.data }));
-      } catch {
+      } catch (err) {
         toast.error('Error loading volunteers');
+        console.error('City volunteers error:', err.response?.data || err.message);
       } finally {
         setVolLoading(null);
       }

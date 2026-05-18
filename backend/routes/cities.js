@@ -1,11 +1,12 @@
 // routes/cities.js
 const express = require('express');
 const router = express.Router();
-const { getCities, addCity, deleteCity } = require('../controllers/cityController');
+const { getCities, addCity, deleteCity, getCityVolunteers } = require('../controllers/cityController');
 const { protect, adminOnly, authenticated } = require('../middleware/auth');
 
 router.get('/', protect, authenticated, getCities);
 router.post('/', protect, adminOnly, addCity);
+router.get('/:id/volunteers', protect, adminOnly, getCityVolunteers);
 router.delete('/:id', protect, adminOnly, deleteCity);
 
 module.exports = router;

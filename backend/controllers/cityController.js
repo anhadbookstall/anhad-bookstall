@@ -24,4 +24,21 @@ const deleteCity = async (req, res) => {
   res.json({ message: 'City deleted' });
 };
 
-module.exports = { getCities, addCity, deleteCity };
+// GET /api/cities/:id/volunteers - Get volunteers who opted for this city
+const getCityVolunteers = async (req, res) => {
+  console.log('getCityVolunteers called for city:', req.params.id);
+  const volunteers = await Volunteer.find({
+    willingCities: req.params.id,
+    status: 'active',
+  }).select('name profilePhoto gmailId isBookstallLead');
+
+  const GitaMember = require('../models/GitaMember');
+  const gitaMembers = await GitaMember.find({
+    willingCities: req.params.id,
+    status: 'active',
+  }).select('name gmailId').catch(() => []);
+
+  res.json({ volunteers, gitaMembers });
+};
+
+module.exports = { getCities, addCity, deleteCity, getCityVolunteers };
