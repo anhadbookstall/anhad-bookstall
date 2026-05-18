@@ -45,6 +45,7 @@ const AdminVolunteers = () => {
   const [allocForm, setAllocForm] = useState({ bookId: '', quantity: 1 });
   const [allocLoading, setAllocLoading] = useState(false);
   const [allocMode, setAllocMode] = useState('allocate'); // 'allocate' or 'deallocate'
+  const { sorted: sortedLeadInv, sortField: liSf, sortDir: liSd, handleSort: liHs } = useSort(leadInvData);
   const gitaStatusMap = ['pending', 'active', 'rejected'];
   const { sorted, sortField, sortDir, handleSort } = useSort(volunteers);
 
@@ -527,15 +528,18 @@ const AdminVolunteers = () => {
               ) : (
                 <TableContainer component={Card} variant="outlined" sx={{ mb: 3 }}>
                   <Table size="small">
-                    <TableHead sx={{ bgcolor: 'grey.100' }}>
+                    <TableHead sx={{ bgcolor: 'primary.main' }}>
                       <TableRow>
-                        <TableCell fontWeight={700}>Book Title</TableCell>
-                        <TableCell fontWeight={700}>Language</TableCell>
-                        <TableCell align="right" fontWeight={700}>Qty (Personal)</TableCell>
+                        <SortableTableCell label="Book Title" field="book.title" sortField={liSf} sortDir={liSd} onSort={(f) => {
+                          // Handle nested field sort manually
+                          liHs(f);
+                        }} sx={{ color: 'white', fontWeight: 700 }} />
+                        <SortableTableCell label="Language" field="book.language" sortField={liSf} sortDir={liSd} onSort={liHs} sx={{ color: 'white', fontWeight: 700 }} />
+                        <SortableTableCell label="Qty" field="quantity" sortField={liSf} sortDir={liSd} onSort={liHs} sx={{ color: 'white', fontWeight: 700 }} />
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {leadInvData.map((item) => (
+                      {sortedLeadInv.map((item) => (
                         <TableRow key={item._id}>
                           <TableCell>{item.book?.title}</TableCell>
                           <TableCell>{item.book?.language}</TableCell>
