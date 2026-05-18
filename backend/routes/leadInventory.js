@@ -8,7 +8,7 @@ const {
 const { protect, adminOnly, authenticated } = require('../middleware/auth');
 
 router.get('/my', protect, authenticated, getMyInventory);
-router.get('/lead/:leadId', protect, adminOnly, getLeadInventory);
+router.get('/lead/:leadId', protect, authenticated, getLeadInventory);
 router.get('/book/:bookId', protect, adminOnly, getBookLeadDistribution);
 router.post('/allocate', protect, adminOnly, allocateToLead);
 router.post('/deallocate', protect, adminOnly, deallocateFromLead);
