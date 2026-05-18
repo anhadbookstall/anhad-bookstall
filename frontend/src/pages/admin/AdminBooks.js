@@ -268,11 +268,18 @@ const AdminBooks = () => {
       {/* ---- TAB 1: Inventory ---- */}
       {mainTab === 1 && (
       <Box>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 2 }}>
           <Typography variant="h5">Inventory</Typography>
-          <Button variant="contained" startIcon={<Add />} onClick={() => setInvDialogOpen(true)}>
-            Update Inventory
-          </Button>
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <TextField
+              size="small" placeholder="Search books..."
+              value={search} onChange={(e) => setSearch(e.target.value)}
+              InputProps={{ startAdornment: <InputAdornment position="start"><Search /></InputAdornment> }}
+            />
+            <Button variant="contained" startIcon={<Add />} onClick={() => setInvDialogOpen(true)}>
+              Update Inventory
+            </Button>
+          </Box>
         </Box>
 
         <TableContainer component={Card}>
