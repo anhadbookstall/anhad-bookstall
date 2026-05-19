@@ -28,6 +28,11 @@ const bookSchema = new mongoose.Schema(
       enum: ['PAF', 'Penguin', 'HarperCollins', 'Jaico', 'Rajpal & Sons', 'Prabhat Prakashan', 'Other'],
       required: true,
     },
+    author: {
+      type: String,
+      trim: true,
+      default: 'Acharya Prashant',
+    },
     // Current stock in inventory
     currentStock: {
       type: Number,

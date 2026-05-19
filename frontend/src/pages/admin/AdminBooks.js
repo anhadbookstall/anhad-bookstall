@@ -8,8 +8,8 @@ import {
   InputAdornment, Autocomplete, Tabs, Tab, Collapse, Grid, Divider,
   CircularProgress, Alert, Avatar, List, ListItem, ListItemAvatar, ListItemText,
 } from '@mui/material';
-import { Add, Edit, Delete, Search, Warning, ExpandMore, ExpandLess, UploadFile, CheckCircle } from '@mui/icons-material';
-import { getBooks, addBook, updateBook, deleteBook, getInventoryHistory, updateInventory, parseInvoice, confirmInvoice, getBookInventoryHistory, getBookLeadDistribution } from '../../services/api';
+import { Add, Edit, Delete, Search, Warning, ExpandMore, ExpandLess, UploadFile, CheckCircle, Download } from '@mui/icons-material';
+import { getBooks, addBook, updateBook, deleteBook, getInventoryHistory, updateInventory, parseInvoice, confirmInvoice, getBookInventoryHistory, getBookLeadDistribution, getVolunteers, getLeadInventory } from '../../services/api';
 import { toast } from 'react-toastify';
 import { useSort } from '../../utils/useSort';
 import SortableTableCell from '../../components/common/SortableTableCell';
@@ -17,7 +17,7 @@ import SortableTableCell from '../../components/common/SortableTableCell';
 const LANGUAGES = ['Hindi', 'English', 'Bangla', 'Odiya'];
 const PUBLICATIONS = ['PAF', 'Penguin', 'HarperCollins', 'Jaico', 'Rajpal & Sons', 'Prabhat Prakashan', 'Other'];
 
-const emptyForm = { title: '', language: 'Hindi', unitCost: '', subjects: '', publication: 'PAF' };
+const emptyForm = { title: '', language: 'Hindi', unitCost: '', subjects: '', publication: 'PAF', author: 'Acharya Prashant' };
 
 const AdminBooks = () => {
   const [books, setBooks] = useState([]);
@@ -195,6 +195,45 @@ const AdminBooks = () => {
     }
   };
 
+  const handleDownloadCSV = async () => {
+    try {
+      toast.info('Preparing CSV...');
+      // Get all bookstall leads
+      const volRes = await getVolunteers({ status: 'active' });
+      const leads = volRes.data.filter((v) => v.isBookstallLead);
+
+      // Get lead inventories
+      const leadInventories = await Promise.all(
+        leads.map((lead) => getLeadInventory(lead._id).then((r) => ({ lead, items: r.data })).catch(() => ({ lead, items: [] })))
+      );
+
+      // Build CSV headers
+      const leadHeaders = leads.map((l) => `"${l.name} (Lead Stock)"`).join(',');
+      const headers = `Title,Language,Publication,Author,Unit Cost,Buffer Stock,${leadHeaders}`;
+
+      // Build CSV rows
+      const rows = books.map((book) => {
+        const leadCols = leadInventories.map(({ items }) => {
+          const item = items.find((i) => (i.book?._id || i.book) === book._id);
+          return item ? item.quantity : 0;
+        }).join(',');
+        return `"${book.title}","${book.language}","${book.publication}","${book.author || 'Acharya Prashant'}",${book.unitCost},${book.currentStock},${leadCols}`;
+      });
+
+      const csv = [headers, ...rows].join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `inventory_${new Date().toISOString().split('T')[0]}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+      toast.success('CSV downloaded!');
+    } catch {
+      toast.error('Error downloading CSV');
+    }
+  };
+
   const handleDelete = async (id) => {
     if (!window.confirm('Remove this book from catalog?')) return;
     await deleteBook(id);
@@ -234,8 +273,9 @@ const AdminBooks = () => {
               <SortableTableCell label="Title" field="title" sortField={sf0} sortDir={sd0} onSort={hs0} />
               <SortableTableCell label="Language" field="language" sortField={sf0} sortDir={sd0} onSort={hs0} />
               <SortableTableCell label="Publication" field="publication" sortField={sf0} sortDir={sd0} onSort={hs0} />
+              <SortableTableCell label="Author" field="author" sortField={sf0} sortDir={sd0} onSort={hs0} />
               <SortableTableCell label="Unit Cost" field="unitCost" sortField={sf0} sortDir={sd0} onSort={hs0} />
-              <SortableTableCell label="Subjects" sortField={sf0} sortDir={sd0} onSort={hs0} />
+              <SortableTableCell label="Keywords" sortField={sf0} sortDir={sd0} onSort={hs0} />
               <SortableTableCell label="Actions" sortField={sf0} sortDir={sd0} onSort={hs0} />
             </TableRow>
           </TableHead>
@@ -245,6 +285,7 @@ const AdminBooks = () => {
                 <TableCell>{book.title}</TableCell>
                 <TableCell>{book.language}</TableCell>
                 <TableCell>{book.publication}</TableCell>
+                <TableCell>{book.author || 'Acharya Prashant'}</TableCell>
                 <TableCell>₹{book.unitCost}</TableCell>
                 <TableCell>
                   {book.subjects?.map((s) => <Chip key={s} label={s} size="small" sx={{ mr: 0.5 }} />)}
@@ -256,7 +297,7 @@ const AdminBooks = () => {
               </TableRow>
             ))}
             {books.length === 0 && (
-              <TableRow><TableCell colSpan={6} align="center">No books found</TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} align="center">No books found</TableCell></TableRow>
             )}
           </TableBody>
         </Table>
@@ -276,6 +317,9 @@ const AdminBooks = () => {
               value={search} onChange={(e) => setSearch(e.target.value)}
               InputProps={{ startAdornment: <InputAdornment position="start"><Search /></InputAdornment> }}
             />
+            <Button variant="outlined" startIcon={<Download />} onClick={handleDownloadCSV}>
+              Download CSV
+            </Button>
             <Button variant="contained" startIcon={<Add />} onClick={() => setInvDialogOpen(true)}>
               Update Inventory
             </Button>
@@ -575,8 +619,9 @@ const AdminBooks = () => {
             onChange={(_, val) => setForm({ ...form, publication: val || '' })}
             renderInput={(params) => <TextField {...params} label="Publication" margin="normal" fullWidth />}
           />
+          <TextField fullWidth label="Author" value={form.author || ''} onChange={(e) => setForm({ ...form, author: e.target.value })} margin="normal" helperText="Default: Acharya Prashant" />
           <TextField fullWidth label="Unit Cost (₹)" type="number" value={form.unitCost} onChange={(e) => setForm({ ...form, unitCost: e.target.value })} margin="normal" required />
-          <TextField fullWidth label="Subjects (comma-separated)" value={form.subjects} onChange={(e) => setForm({ ...form, subjects: e.target.value })} margin="normal" helperText="e.g. Philosophy, Self-Help, Spirituality" />
+          <TextField fullWidth label="Keywords (comma-separated)" value={form.subjects} onChange={(e) => setForm({ ...form, subjects: e.target.value })} margin="normal" helperText="e.g. Philosophy, Self-Help, Spirituality" />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
